@@ -78,6 +78,8 @@ make_omnibus <- function(){
   # merge list
   omnibus_df <- do.call(rbind, list_dfs)
   
+  # need to do outlier removal here
+  
   return(omnibus_df)
 }
 
