@@ -1,0 +1,82 @@
+---
+title: "Billiards and Tilts Analysis Notebook"
+author: "Shanaathanan Modchalingam"
+date: "Dec 06, 2021"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+rm(list = ls())      # clean environment
+
+source("helper_funcs.R")
+library(data.table)
+library(tidyverse)
+library(ggbeeswarm)
+library(ez) #for ANOVAs
+library(effectsize) # for eta-squared
+
+```
+
+# Background reading
+
+Interesting papers: 
+
+
+
+# Visualizing all data
+
+## Load all of the throw data
+
+First, we will plot all the trials and see if there are group effects.
+
+```{r}
+#load omnibus dataframe
+omnibus_df <- read_delim("data/omnibus/omnibus_throws.csv", 
+                            delim = ",", 
+                            col_types = cols(.default = col_double(), 
+                                             type = col_factor(),
+                                             ppid = col_factor(),
+                                             experiment = col_factor(),
+                                             hand = col_factor(),
+                                             per_block_list_camera_tilt = col_factor(),
+                                             per_block_list_surface_tilt = col_factor(),
+                                             per_block_targetListToUse = col_factor(),
+                                             per_block_surface_materials = col_factor()))
+```
+
+## Baseline correction?
+
+## Plot
+```{r}
+all_throw_summary <- omnibus_df %>%
+  group_by(experiment, trial_num) %>%
+  summarise(mean = mean(error_size, na.rm = TRUE),
+            sd = sd(error_size, na.rm = TRUE), 
+            ci = vector_confint(error_size),
+            n = n(), .groups = "drop")
+```
+
+```{r}
+p <- omnibus_df %>%
+  ggplot(aes(x = trial_num, y = error_size)) +
+  geom_point(alpha = 0.04, aes(colour = experiment)) + 
+  geom_ribbon(data = all_throw_summary, 
+                 aes(y = mean, ymin = mean-ci,
+                     ymax = mean+ci, fill = experiment), 
+              alpha = 0.3) +
+  geom_line(data = all_throw_summary, 
+            aes(y = mean, colour = experiment)) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(205, 374))
+p
+
+# save plot
+ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
+```
+
