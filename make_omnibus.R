@@ -78,7 +78,9 @@ make_omnibus <- function(){
   # merge list
   omnibus_df <- do.call(rbind, list_dfs)
   
-  # need to do outlier removal here
+  # replace any errors of 0.5 or more with NAs
+  omnibus_df <- omnibus_df %>%
+    mutate(error_size = replace(error_size, error_size > 0.5, NA))
   
   return(omnibus_df)
 }
@@ -88,3 +90,17 @@ make_omnibus <- function(){
 omnibus_df <- make_omnibus()
 # save the omnibus df
 fwrite(omnibus_df, file = "data/omnibus/omnibus_throws.csv")
+
+
+# plot distribution of error size
+omnibus_df$experiment <- as.factor(omnibus_df$experiment)
+
+p <- omnibus_df %>%
+  ggplot(aes(x = trial_num,
+             y = error_size, colour = experiment)) +
+  stat_summary(geom = "point") +
+  stat_summary(geom = "line", alpha = 0.3)
+  
+  # geom_density(alpha=.2) 
+p
+
