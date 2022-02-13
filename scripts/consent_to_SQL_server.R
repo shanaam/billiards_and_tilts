@@ -26,4 +26,11 @@ consent_df <- read_delim("data/consent_demographics/VR_exp_consent_12022022.csv"
 
 # filter out test cases and unfinished surveys
 consent_df <- consent_df %>%
-  filter(Status == "IP Address", Finished == "True")
+  filter(Status == "IP Address", Finished == "True") %>%
+  select(-Status, -IPAddress, -StartDate, -EndDate,
+         -LocationLatitude, -LocationLongitude, -DistributionChannel,
+         -UserLanguage, -`Create New Field or Choose From Dropdown...`, 
+         -`Duration (in seconds)`, -starts_with("Recipient"), 
+         -ExternalReference)
+
+fwrite(consent_df, file = "data/consent_demographics/VR_exp_consent_12022022_cleaned.csv")
