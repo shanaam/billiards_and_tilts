@@ -77,6 +77,6 @@ p <- omnibus_df %>%
 p
 
 # save plot
-ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
+ggsave(p, height = 9, width = 16, device = "png", filename = "data/figs/all_throws.png")
 ```
 

@@ -26,9 +26,14 @@ library(tidyverse)
 # simple function for applying atan2 (removes baseline.. subtracts.. something)
 applyAtan2 <- function(df){
   
-  # I should rotate target to 180 first. Test cases where it crosses 0, either direction
+  x = df[1] - df[3]
+  y = df[2] - df[4]
+  ang = df[5] * -1 *pi/180 #convert to rads
   
-  return(((atan2(df[2] - df[4], df[1] - df[3]) * 180/pi) %% 360) - df[5]) # atan2(y,x) -- atan2 takes y first
+  x_r = (x*cos(ang)) - (y*sin(ang))
+  y_r = (x*sin(ang)) + (y*cos(ang))
+  
+  return(atan2(y_r, x_r) * 180/pi) # atan2(y,x) -- atan2 takes y first
 }
 
 # function to load 1 participant's data
