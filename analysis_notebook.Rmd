@@ -65,7 +65,7 @@ all_throw_summary <- omnibus_df %>%
 ```{r}
 p <- omnibus_df %>%
   ggplot(aes(x = trial_num, y = error_size)) +
-  geom_point(alpha = 0.04, aes(colour = experiment)) + 
+  # geom_point(alpha = 0.04, aes(colour = experiment)) + 
   geom_ribbon(data = all_throw_summary, 
                  aes(y = mean, ymin = mean-ci,
                      ymax = mean+ci, fill = experiment), 
@@ -77,6 +77,6 @@ p <- omnibus_df %>%
 p
 
 # save plot
-ggsave(p, height = 9, width = 16, device = "png", filename = "data/figs/all_throws.png")
+ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
 ```
 
