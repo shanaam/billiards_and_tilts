@@ -27,6 +27,19 @@ norm_vec <- function(vector) {
   sqrt(crossprod(vector))
 }
 
+# atan2 using x, y, home_x, home_y, target(degrees)
+applyAtan2 <- function(df){
+  x = df[1] 
+  y = df[2]
+  ang = df[3] * -1 *pi/180 #convert to rads
+  
+  x_r = (x*cos(ang)) - (y*sin(ang))
+  y_r = (x*sin(ang)) + (y*cos(ang))
+  
+  return(atan2(y_r, x_r) * 180/pi) # atan2(y,x) -- atan2 takes y first
+}
+
+
 # load data using fread
 loadData <- function(path) {
   data_df <- fread(path, stringsAsFactors = TRUE)

@@ -36,7 +36,8 @@ plot_learning_curve <- function() {
             per_block_targetListToUse = col_factor(),
             per_block_surface_materials = col_factor()
         )
-    )
+    ) %>%
+      filter(experiment != "rot15_cued_tilt", experiment != "rot15_uncued")
 
     # subtract 213 from trial number
     data$trial_num <- data$trial_num - 213
@@ -79,19 +80,19 @@ plot_learning_curve <- function() {
     # add confidence intervals and data
     p <- p +
         geom_ribbon(
-            data = filter(data_group, trial_num > 0, trial_num <= 80),
+            data = filter(data_group, trial_num >= 0, trial_num <= 80),
             aes(ymin = group_mean - ci, ymax = group_mean + ci),
             colour = NA, alpha = 0.3
         ) +
-        geom_line(data = filter(data_group, trial_num > 0, trial_num <= 80))
+        geom_line(data = filter(data_group, trial_num >= 0, trial_num <= 80))
 
     p <- p +
         geom_ribbon(
-            data = filter(data_group, trial_num > 81, trial_num <= 120),
+            data = filter(data_group, trial_num >= 81, trial_num <= 120),
             aes(ymin = group_mean - ci, ymax = group_mean + ci),
             colour = NA, alpha = 0.3
         ) +
-        geom_line(data = filter(data_group, trial_num > 81, trial_num <= 120))
+        geom_line(data = filter(data_group, trial_num >= 81, trial_num <= 120))
     # theme changes
     p <- p + theme_classic() +
         xlab("Trial Number") +
@@ -131,7 +132,8 @@ plot_rebound <- function() {
             per_block_targetListToUse = col_factor(),
             per_block_surface_materials = col_factor()
         )
-    )
+    ) %>%
+      filter(experiment != "rot15_cued_tilt", experiment != "rot15_uncued")
 
     # subtract 213 from trial number
     data$trial_num <- data$trial_num - 213 - 121
@@ -154,7 +156,7 @@ plot_rebound <- function() {
             colour = experiment, fill = experiment
         ))
 
-    # make backgrount from 0 to 40 grey
+    # make background from 0 to 40 grey
     p <- p +
         geom_rect(
             xmin = 0, xmax = 40,
@@ -226,7 +228,7 @@ plot_comparison <- function() {
 
     # filter in the 3 trial numbers: 214, 294, and 335
     data <- data %>%
-        filter(trial_num == 214 | trial_num == 294 | trial_num == 335)
+        filter(trial_num %in% c(214, 215, 294, 295, 335, 336))
 
     # make trial_num a factor
     data$trial_num <- factor(data$trial_num)
@@ -334,20 +336,253 @@ plot_comparison <- function() {
     return(p)
 }
 
+
+# function to plot the learning curve
+plot_learning_curve_15 <- function() {
+  # load the data
+  data <- read_delim("data/omnibus/omnibus_throws.csv",
+                     delim = ",",
+                     col_types = cols(
+                       .default = col_double(),
+                       type = col_factor(),
+                       ppid = col_factor(),
+                       experiment = col_factor(),
+                       hand = col_factor(),
+                       per_block_list_camera_tilt = col_factor(),
+                       per_block_list_surface_tilt = col_factor(),
+                       per_block_targetListToUse = col_factor(),
+                       per_block_surface_materials = col_factor()
+                     )
+  ) %>%
+    filter(experiment != "tilt_cued_rot", experiment != "tilt_uncued_rot")
+  
+  # subtract 213 from trial number
+  data$trial_num <- data$trial_num - 213
+  data$error_size <- data$error_size * 100
+  
+  # make summary df
+  data_group <- data %>%
+    group_by(experiment, trial_num) %>%
+    summarise(
+      group_mean = mean(error_size, na.rm = TRUE),
+      sd = sd(error_size, na.rm = TRUE),
+      ci = vector_confint(error_size),
+      n = n(), .groups = "drop"
+    )
+  
+  # set up the plot
+  p <- data_group %>%
+    ggplot(aes(
+      x = trial_num, y = group_mean,
+      colour = experiment, fill = experiment
+    ))
+  
+  # add helper lines
+  # add horizontal line at 0
+  p <- p +
+    geom_hline(
+      yintercept = 0, colour = "#CCCCCC",
+      linetype = "dashed"
+    )
+  
+  # make backgrount from 0 to 80 grey
+  p <- p +
+    geom_rect(
+      xmin = 0, xmax = 80,
+      ymin = 0, ymax = 60,
+      fill = "#CCCCCC", colour = NA,
+      alpha = 0.5
+    )
+  
+  # add confidence intervals and data
+  p <- p +
+    geom_ribbon(
+      data = filter(data_group, trial_num >= 0, trial_num <= 80),
+      aes(ymin = group_mean - ci, ymax = group_mean + ci),
+      colour = NA, alpha = 0.3
+    ) +
+    geom_line(data = filter(data_group, trial_num >= 0, trial_num <= 80))
+  
+  p <- p +
+    geom_ribbon(
+      data = filter(data_group, trial_num >= 81, trial_num <= 120),
+      aes(ymin = group_mean - ci, ymax = group_mean + ci),
+      colour = NA, alpha = 0.3
+    ) +
+    geom_line(data = filter(data_group, trial_num >= 81, trial_num <= 120))
+  # theme changes
+  p <- p + theme_classic() +
+    xlab("Trial Number") +
+    ylab("Error Size (cm)") +
+    scale_x_continuous(limits = c(1, 120), breaks = seq(0, 120, by = 40)) +
+    scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
+    theme(text = element_text(size = 35))
+  
+  # set colour palette
+  p <- p + scale_colour_manual(values = c(
+    pallete$tilt_c, pallete$tilt_nc,
+    pallete$rot_c, pallete$rot_nc
+  )) + scale_fill_manual(values = c(
+    pallete$tilt_c, pallete$tilt_nc,
+    pallete$rot_c, pallete$rot_nc
+  ))
+  
+  # remove legend
+  p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
+
+# function to plot the learning curve
+plot_rebound_15 <- function() {
+  # load the data
+  data <- read_delim("data/omnibus/omnibus_throws.csv",
+                     delim = ",",
+                     col_types = cols(
+                       .default = col_double(),
+                       type = col_factor(),
+                       ppid = col_factor(),
+                       experiment = col_factor(),
+                       hand = col_factor(),
+                       per_block_list_camera_tilt = col_factor(),
+                       per_block_list_surface_tilt = col_factor(),
+                       per_block_targetListToUse = col_factor(),
+                       per_block_surface_materials = col_factor()
+                     )
+  ) %>%
+    filter(experiment != "tilt_cued_rot", experiment != "tilt_uncued_rot")
+  
+  # subtract 213 from trial number
+  data$trial_num <- data$trial_num - 213 - 121
+  data$error_size <- data$error_size * 100
+  
+  # make summary df
+  data_group <- data %>%
+    group_by(experiment, trial_num) %>%
+    summarise(
+      group_mean = mean(error_size, na.rm = TRUE),
+      sd = sd(error_size, na.rm = TRUE),
+      ci = vector_confint(error_size),
+      n = n(), .groups = "drop"
+    )
+  
+  # set up the plot
+  p <- data_group %>%
+    ggplot(aes(
+      x = trial_num, y = group_mean,
+      colour = experiment, fill = experiment
+    ))
+  
+  # make background from 0 to 40 grey
+  p <- p +
+    geom_rect(
+      xmin = 0, xmax = 40,
+      ymin = 0, ymax = 60,
+      fill = "#CCCCCC", colour = NA,
+      alpha = 0.5
+    )
+  
+  # add helper lines
+  # add horizontal line at 0
+  p <- p +
+    geom_hline(
+      yintercept = 0, colour = "#CCCCCC",
+      linetype = "dashed"
+    )
+  
+  # add confidence intervals and data
+  p <- p +
+    geom_ribbon(
+      data = filter(data_group, trial_num > 0),
+      aes(ymin = group_mean - ci, ymax = group_mean + ci),
+      colour = NA, alpha = 0.3
+    ) +
+    geom_line(data = filter(data_group, trial_num > 0))
+  
+  # theme changes
+  p <- p + theme_classic() +
+    xlab("Trial Number") +
+    ylab("Error Size (cm)") +
+    scale_x_continuous(limits = c(1, 40), breaks = seq(0, 40, by = 40)) +
+    scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
+    theme(text = element_text(size = 35))
+  
+  # set colour palette
+  p <- p + scale_colour_manual(values = c(
+    pallete$tilt_c, pallete$tilt_nc,
+    pallete$rot_c, pallete$rot_nc
+  )) + scale_fill_manual(values = c(
+    pallete$tilt_c, pallete$tilt_nc,
+    pallete$rot_c, pallete$rot_nc
+  ))
+  
+  # remove legend
+  p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
+
+
+
 # save learning curve
 ggsave(plot_learning_curve(),
-    height = 12, width = 19, device = "svg",
-    filename = "data/figs/learning_curve.svg"
+    height = 12, width = 19, device = "pdf",
+    filename = "data/figs/learning_curve15.pdf"
 )
 
 # save rebound curve
 ggsave(plot_rebound(),
-    height = 12, width = 7, device = "svg",
-    filename = "data/figs/rebound_curve.svg"
+    height = 12, width = 7, device = "pdf",
+    filename = "data/figs/rebound_curve15.pdf"
 )
 
 # save comparison figures
-ggsave(plot_comparison(),
-    height = 8, width = 12, device = "svg",
-    filename = "data/figs/comparison_figures.svg"
-)
+# ggsave(plot_comparison(),
+#     height = 8, width = 12, device = "svg",
+#     filename = "data/figs/comparison_figures.svg"
+# )
+
+
+# -----------
+
+plot_misc <- function() {
+  # load the data
+  data <- read_delim("data/omnibus/omnibus_throws.csv",
+                     delim = ",",
+                     col_types = cols(
+                       .default = col_double(),
+                       type = col_factor(),
+                       ppid = col_factor(),
+                       experiment = col_factor(),
+                       hand = col_factor(),
+                       per_block_list_camera_tilt = col_factor(),
+                       per_block_list_surface_tilt = col_factor(),
+                       per_block_surface_materials = col_factor()
+                     )
+  ) %>% 
+    filter(type != "instruction")
+  
+  # get angles
+  data$flick_ang_dev <- apply(data[ , c('flick_velocity_x', 'flick_velocity_y', 'per_block_targetListToUse')],
+                              1, FUN = applyAtan2)
+  # make summary df
+  data_group <- data %>%
+    group_by(experiment, trial_num) %>%
+    summarise(
+      group_mean = mean(flick_ang_dev, na.rm = TRUE),
+      sd = sd(flick_ang_dev, na.rm = TRUE),
+      ci = vector_confint(flick_ang_dev),
+      n = n(), .groups = "drop"
+    )
+  
+  # set up the plot
+  p <- data %>%
+    ggplot(aes(
+      x = trial_num, y = flick_ang_dev,
+      colour = experiment, fill = experiment
+    )) +
+    geom_point(alpha = 0.1) +
+    geom_point(data = data_group, aes(y = group_mean))
+  
+  p
+}
