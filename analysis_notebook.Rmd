@@ -15,11 +15,13 @@ output:
 rm(list = ls())      # clean environment
 
 source("src/helper_funcs.R")
+source("scripts/make_figs.R")
 library(data.table)
 library(tidyverse)
 library(ggbeeswarm)
 library(ez) #for ANOVAs
 library(effectsize) # for eta-squared
+library(plotly)
 
 ```
 
@@ -50,9 +52,7 @@ omnibus_df <- read_delim("data/omnibus/omnibus_throws.csv",
                                              per_block_surface_materials = col_factor()))
 ```
 
-## Baseline correction?
-
-## Plot
+## All throws
 ```{r}
 all_throw_summary <- omnibus_df %>%
   group_by(experiment, trial_num) %>%
@@ -62,7 +62,7 @@ all_throw_summary <- omnibus_df %>%
             n = n(), .groups = "drop")
 ```
 
-```{r}
+```{r, warning=FALSE, fig.width=9.5}
 p <- omnibus_df %>%
   ggplot(aes(x = trial_num, y = error_size)) +
   # geom_point(alpha = 0.04, aes(colour = experiment)) + 
@@ -77,6 +77,22 @@ p <- omnibus_df %>%
 p
 
 # save plot
-ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
+# ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
+```
+
+## Success manifolds
+### Without any tilts
+```{r, fig.width=9, fig.height=20}
+ggplotly(plot_success_manifold_no_tilt())
+```
+
+### With tilt present
+```{r, fig.width=9, fig.height=20}
+ggplotly(plot_success_manifold_tilt())
+```
+
+
+```{r, include=FALSE}
+NULL
 ```
 

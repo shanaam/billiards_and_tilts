@@ -28,15 +28,15 @@ norm_vec <- function(vector) {
 }
 
 # atan2 using x, y, home_x, home_y, target(degrees)
-applyAtan2 <- function(df){
-  x = df[1] 
-  y = df[2]
-  ang = df[3] * -1 *pi/180 #convert to rads
-  
-  x_r = (x*cos(ang)) - (y*sin(ang))
-  y_r = (x*sin(ang)) + (y*cos(ang))
-  
-  return(atan2(y_r, x_r) * 180/pi) # atan2(y,x) -- atan2 takes y first
+applyAtan2 <- function(df) {
+  x <- df[1]
+  y <- df[2]
+  ang <- df[3] * -1 * pi / 180 # convert to rads
+
+  x_r <- (x * cos(ang)) - (y * sin(ang))
+  y_r <- (x * sin(ang)) + (y * cos(ang))
+
+  return(atan2(y_r, x_r) * 180 / pi) # atan2(y,x) -- atan2 takes y first
 }
 
 
@@ -185,4 +185,15 @@ bayes_t_test <- function(df, group_title, group1, group2, dv) {
   return(sprintf("BF01: %.3f, P(D|H0): %.3f, P(D|H1): %.3f, Groups: %s vs %s", res.bayes$BF01, null, alt, group1, group2))
 }
 
-#####
+##### MODIFIED FUNCTIONS FROM SMCL PACKAGE
+
+convert_cell_to_numvec <- function(v) {
+  # split by commas:
+  v <- strsplit(v, "_")
+  # convert to numeric:
+  v <- lapply(v, FUN = as.numeric)
+  # make vector:
+  v <- as.vector(unlist(v))
+
+  return(v)
+}
