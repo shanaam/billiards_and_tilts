@@ -1,4 +1,4 @@
-#### Script for making publication figures (training data)
+#### Script for making figures
 #### Author: Shanaa Modchalingam
 #### Date: April 2022
 

@@ -17,6 +17,7 @@
 
 ## ----
 ## Load packages
+rm(list = ls())
 library(data.table)
 library(tidyverse)
 
