@@ -132,7 +132,19 @@ make_omnibus <- function() {
       omnibus_df$trial_num %in% c(1, 2, 3, 4),
       "init",
       ifelse(omnibus_df$trial_num %in% c(77, 78, 79, 80),
-        "end", "other"
+        "end",
+        ifelse(omnibus_df$trial_num %in% c(81, 82, 83, 84),
+          "washout_init",
+          ifelse(omnibus_df$trial_num %in% c(117, 118, 119, 120),
+            "washout_end",
+            ifelse(omnibus_df$trial_num %in% c(122, 123, 124, 125),
+              "transfer_init",
+              ifelse(omnibus_df$trial_num %in% c(158, 159, 160, 161),
+                "transfer_end", "other"
+              )
+            )
+          )
+        )
       )
     ))
 

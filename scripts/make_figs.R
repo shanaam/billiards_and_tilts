@@ -8,7 +8,7 @@ source("src/helper_funcs.R")
 library(data.table)
 library(tidyverse)
 library(ggbeeswarm)
-
+library(ggnewscale)
 # palette for plotting:
 # https://venngage-wordpress.s3.amazonaws.com/uploads/2019/08/color-blind-friendly-palette-9.png # nolint
 
@@ -588,8 +588,9 @@ plot_success_manifold_no_tilt <- function() {
   # filter only one target and filter out rotated type and NA error sizes
   data <- data %>%
     filter(
-      target %in% c(84, 88, 92, 96), type != "rotated",
-      error_size != "NA", per_block_list_surface_tilt < 10
+      target %in% c(92, 96), type == "rotated",
+      error_size != "NA", per_block_list_surface_tilt < 10,
+      trial_num >= -169 # remove practice trials
     )
 
   # set up the plot
@@ -597,7 +598,7 @@ plot_success_manifold_no_tilt <- function() {
     ggplot(aes(
       text = paste("ppt:", ppid, " trial:", trial_num),
       x = throw_angle, y = throw_magnitude,
-      colour = error_size, fill = error_size
+      colour = error_size
     ))
 
   # add a vertical line at 0
@@ -606,6 +607,12 @@ plot_success_manifold_no_tilt <- function() {
       xintercept = 0, colour = "#CCCCCC",
       linetype = "dashed"
     )
+
+  # set colour palette
+  p <- p + scale_colour_gradient(
+    low = "#7eaee2", high = "#001a35",
+    limits = c(5, 70), na.value = "white"
+  )
 
   # add data
   p <- p +
@@ -616,24 +623,42 @@ plot_success_manifold_no_tilt <- function() {
 
   # theme changes
   p <- p + theme_classic() +
-    xlab("Throw Angle (deg)") +
-    ylab("Throw Magnitude") +
+    xlab("Release Angle (deg)") +
+    ylab("Release Velocity (m/s)") +
     theme(
-      text = element_text(size = 11),
-      panel.background = element_rect(fill = "#000000", colour = "#000000")
-    ) + facet_grid(vars(target))
+      text = element_text(size = 20),
+      panel.background = element_rect(fill = "#868686", colour = "#000000")
+    ) + facet_wrap(~ fct_relevel(target, "96", "92", "88", "84"),
+      ncol = 1, strip.position = "right"
+    ) +
+    scale_y_continuous(limits = c(1.0, 2.2)) +
+    scale_x_reverse(limits = c(50, -50))
 
-  # reverse the x axis
-  p <- p + scale_x_reverse()
+  # set new colour scale
+  p <- p + new_scale_colour() +
+    scale_color_manual(values = c(
+      "#d58c2c", "#e85531",
+      "#53beca", "#2c6ebf"
+    )) +
+    scale_shape_manual(values = c(16, 16, 1, 1))
 
-  # set colour palette
-  p <- p + scale_colour_gradient(
-    low = "#7eaee2", high = "#001a35",
-    limits = c(5, 45), na.value = "white"
-  ) + scale_fill_gradient(
-    low = "#7eaee2", high = "#001a35",
-    limits = c(5, 45), na.value = "white"
-  )
+  # isolate just the trial_sets we need
+  data <- data %>%
+    filter(trial_set != "other")
+
+  # add the new data to plot
+  p <- p +
+    geom_point(
+      data = data,
+      aes(colour = trial_set, shape = trial_set),
+      size = 2
+    )
+
+  # add title
+  p <- p +
+    ggtitle(
+      "Throws with 30 deg Rotation"
+    )
 
   return(p)
 }
@@ -646,7 +671,7 @@ plot_success_manifold_tilt <- function() {
   # filter only one target and filter out rotated type and NA error sizes
   data <- data %>%
     filter(
-      target %in% c(84, 88, 92, 96), type != "rotated",
+      target %in% c(92, 96), type != "rotated",
       error_size != "NA", per_block_list_surface_tilt > 10
     )
 
@@ -655,7 +680,7 @@ plot_success_manifold_tilt <- function() {
     ggplot(aes(
       text = paste("ppt:", ppid, " trial:", trial_num),
       x = throw_angle, y = throw_magnitude,
-      colour = error_size, fill = error_size
+      colour = error_size
     ))
 
   # add a vertical line at 0
@@ -664,6 +689,12 @@ plot_success_manifold_tilt <- function() {
       xintercept = 0, colour = "#CCCCCC",
       linetype = "dashed"
     )
+
+  # set colour palette
+  p <- p + scale_colour_gradient(
+    low = "#7eaee2", high = "#001a35",
+    limits = c(5, 70), na.value = "white"
+  )
 
   # add data
   p <- p +
@@ -674,25 +705,37 @@ plot_success_manifold_tilt <- function() {
 
   # theme changes
   p <- p + theme_classic() +
-    xlab("Throw Angle (deg)") +
-    ylab("Throw Magnitude") +
+    xlab("Release Angle (deg)") +
+    ylab("Release Velocity (m/s)") +
     theme(
-      text = element_text(size = 11),
-      panel.background = element_rect(fill = "#000000", colour = "#000000")
-    ) + facet_grid(vars(target)) +
-    scale_y_continuous(limits = c(1.2, 2.2))
+      text = element_text(size = 20),
+      panel.background = element_rect(fill = "#868686", colour = "#000000")
+    ) + facet_wrap(~ fct_relevel(target, "96", "92", "88", "84"),
+      ncol = 1, strip.position = "right"
+    ) +
+    scale_y_continuous(limits = c(1.0, 2.2)) +
+    scale_x_reverse(limits = c(50, -50))
 
-  # reverse the x axis
-  p <- p + scale_x_reverse()
 
-  # set colour palette
-  p <- p + scale_colour_gradient(
-    low = "#7eaee2", high = "#001a35",
-    limits = c(5, 45), na.value = "white"
-  ) + scale_fill_gradient(
-    low = "#7eaee2", high = "#001a35",
-    limits = c(5, 45), na.value = "white"
-  )
+  # set new colour scale
+  p <- p + new_scale_colour() +
+    scale_color_manual(values = c(
+      "#d58c2c", "#e85531",
+      "#53beca", "#2c6ebf"
+    )) +
+    scale_shape_manual(values = c(16, 16, 1, 1))
+
+  # isolate just the trial_sets we need
+  data <- data %>%
+    filter(trial_set != "other")
+
+  # add the new data to plot
+  p <- p +
+    geom_point(
+      data = data,
+      aes(colour = trial_set, shape = trial_set),
+      size = 2
+    )
 
   return(p)
 }
@@ -735,8 +778,8 @@ plot_one_ball_path <- function(ppt, trial, experiment, target,
     return(
       geom_path(
         data = to_plot,
-        size = 1,
-        alpha = 0.3
+        size = 0.5,
+        alpha = 0.5
       )
     )
   }
@@ -745,9 +788,11 @@ plot_one_ball_path <- function(ppt, trial, experiment, target,
 # plot initial and final ball paths
 plot_init_end_paths <- function() {
   # load in the data
-  data <- load_main_experiments(with_path_omnibus) %>%
-    filter(trial_set != "other", ppid != 2) %>%
-    select(-pinball_path_y)
+  data <- load_main_experiments(omnibus_path) %>%
+    filter(
+      trial_set == "transfer_init" | trial_set == "transfer_end",
+      ppid != 2, error_size != "NA"
+    )
 
   # number of rows in data
 
@@ -756,16 +801,18 @@ plot_init_end_paths <- function() {
     NULL,
     aes(
       x = path_x,
-      y = path_z,
+      y = path_z - 0.4,
       linetype = trial_set,
-      colour = target
+      colour = trial_set
     )
   ) +
     theme_classic() +
     xlab("X Position") +
-    ylab("Z Position")
+    ylab("Z Position") +
+    theme(text = element_text(size = 20)) +
+    scale_x_continuous(limits = c(-1, 0.5))
 
-  # for length of data
+  # for n rows in data
   for (i in 1:nrow(data)) {
     # get the row in data
     row <- data[i, ]
@@ -785,22 +832,29 @@ plot_init_end_paths <- function() {
       )
   }
 
-  # get first 4 rows of data
-  rows_4 <- data %>%
-    head(4)
+  # get rows for targets
+  target_summary <- data %>%
+    filter(trial_set == "transfer_init") %>%
+    group_by(experiment, target, trial_set) %>%
+    summarise(
+      n = nrow(experiment),
+      mean_target_x = mean(target_x),
+      mean_target_z = mean(target_z)
+    )
 
   # add targets
   p <- p +
     geom_point(
-      data = rows_4,
-      aes(x = target_x, y = target_z),
-      size = 3,
-      alpha = 0.9,
-      colour = "black"
+      data = target_summary,
+      aes(x = mean_target_x, y = mean_target_z - 0.4),
+      colour = "#e73e3e", size = 3
     )
-  # facet wrap experiment and target
-  p <- p + facet_grid(vars(experiment), vars(target))
 
+  # facet wrap experiment and target
+  p <- p + facet_grid(
+    vars(experiment),
+    vars(fct_relevel(target, "96", "92", "88", "84"))
+  )
 
   return(p)
 
@@ -808,8 +862,6 @@ plot_init_end_paths <- function() {
 
   # facet by experiment
 }
-
-
 
 
 #### SAVE PLOTS
@@ -832,13 +884,13 @@ plot_init_end_paths <- function() {
 # )
 #
 # # save success manifolds
-# ggsave(plot_success_manifold_no_tilt(),
-#   height = 20, width = 10, device = "pdf",
-#   filename = "data/figs/success_manifold_no_tilt.pdf"
-# )
+ggsave(plot_success_manifold_no_tilt(),
+  height = 8, width = 10.5, device = "png",
+  filename = "data/figs/success_manifold_no_tilt.png"
+)
 # ggsave(plot_success_manifold_tilt(),
-#   height = 20, width = 10, device = "pdf",
-#   filename = "data/figs/success_manifold_tilt.pdf"
+# height = 8, width = 10.5, device = "png",
+# filename = "data/figs/success_manifold_tilt.png"
 # )
 
 # save comparison figures
@@ -848,10 +900,10 @@ plot_init_end_paths <- function() {
 # )
 
 # save initial and final ball paths
-ggsave(plot_init_end_paths(),
-  height = 12, width = 19, device = "pdf",
-  filename = "data/figs/init_end_paths.pdf"
-)
+# ggsave(plot_init_end_paths(),
+# height = 8, width = 10.5, device = "png",
+# filename = "data/figs/init_end_paths.png"
+# )
 
 
 
