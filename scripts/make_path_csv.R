@@ -81,10 +81,11 @@ data <- data %>% filter(
 data <- data %>%
     unnest(cols = c(pinball_path_x, pinball_path_y, pinball_path_z))
 
+# rotate the paths to match the surface tilt
+
+
 # save the data (this will be a 1+ GB file)
 # write.csv(data, "data/omnibus/omnibus_throws_path_unnested.csv")
-
-
 
 # save as a data file
 save(data, file = "data/omnibus/omnibus_throws_path_unnested.Rdata")

@@ -73,8 +73,10 @@ p <- omnibus_df %>%
   geom_line(data = all_throw_summary, 
             aes(y = mean, colour = experiment)) +
   theme_minimal() +
-  scale_x_continuous(limits = c(205, 374))
-p
+  # scale_x_continuous(limits = c(205, 374)) +
+  NULL
+
+ggplotly(p)
 
 # save plot
 # ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
