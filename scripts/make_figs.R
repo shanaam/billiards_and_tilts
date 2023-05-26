@@ -1,4 +1,4 @@
-#### Script for making publication figures (training data)
+#### Script for making figures
 #### Author: Shanaa Modchalingam
 #### Date: April 2022
 
@@ -884,10 +884,10 @@ plot_init_end_paths <- function() {
 # )
 #
 # # save success manifolds
-ggsave(plot_success_manifold_no_tilt(),
-  height = 8, width = 10.5, device = "png",
-  filename = "data/figs/success_manifold_no_tilt.png"
-)
+# ggsave(plot_success_manifold_no_tilt(),
+#   height = 8, width = 10.5, device = "png",
+#   filename = "data/figs/success_manifold_no_tilt.png"
+# )
 # ggsave(plot_success_manifold_tilt(),
 # height = 8, width = 10.5, device = "png",
 # filename = "data/figs/success_manifold_tilt.png"
