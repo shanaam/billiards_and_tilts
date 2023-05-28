@@ -20,7 +20,7 @@ library(future) # for parallel processing
 
 ##### Variables #####
 to_load_dir_path <- "data/raw_data"
-to_save_dir_path <- "data/omnibus"
+to_save_dir_path <- "data/processed/omnibus"
 original_exps <- c("rot15_cued_tilt", "rot15_uncued", "tilt_uncued_rot", 
                    "tilt_uncued_norot", "tilt_cued_rot", "tilt_cued_norot")
 
@@ -41,11 +41,17 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
   
   # row bind all the trial_dfs
   omnibus_df <- do.call(rbind, future_output)
+
+  # rename the "target_list" column to "target"
+  omnibus_df <- omnibus_df %>% 
+    rename(target = per_block_targetListToUse,
+    camera_tilt = per_block_list_camera_tilt,
+    surface_tilt = per_block_list_surface_tilt,
+    surface = per_block_surface_materials)
   
   # save the omnibus_df
   fwrite(omnibus_df, file = paste(to_save_dir_path, "omnibus_raw.csv", sep = "/"))
 }
-
 
 make_one_ppt_file <- function(directory_index, ppt_list) {
   
@@ -56,12 +62,19 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
   # load in all trial_results.csv files
   trial_df <- fread(paste(ppt_dir, "S001/trial_results.csv", sep = "/"))
   
-  ### remove things ###
+  
   ## ALL EXPS ## 
+  ### remove things ###
   trial_df <- trial_df %>% 
     filter(type != "instruction") %>%
     select(-"session_num", -"indicator_angle", -"show_path", -"tilt_after_fire",
-           -"flick_multiplier")
+           -"flick_multiplier", -"step_timestamp")
+  
+  ### add things ###
+  # add a column for the throw_deviation
+  trial_df <- trial_df %>% 
+    mutate(throw_deviation = atan2_2d(flick_velocity_x, flick_velocity_z, 
+                                      per_block_targetListToUse))
   
   ## ORIGIAL EXPS ##
   if (trial_df$experiment[1] %in% original_exps){
@@ -72,7 +85,7 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
     
     ### add things ###
     trial_df$anim_type <- "none"
-    trial_df$exp <- "original_exps"
+    trial_df$exp_label <- "original_exps"
   } else if (trial_df$experiment[1] == "a_ball_roll_animate_surface"){
     ## ANIMATE SURFACE EXP ##
     ### remove things ###
@@ -80,12 +93,10 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       select(-starts_with("hand_pos_flick"), -starts_with("ball_pos_step1"))
     
     ### add things ###
-    trial_df$exp <- "animate_surface"
+    trial_df$exp_label <- "animate_surface"
   }
 
-  trial_df <- trial_df %>% 
-    select(-"experiment")
-
+  ### remove things final
   
   # # make a per trial summary and join it to the trial_df 
   # hand_df_summary <- hand_df %>%
@@ -101,10 +112,13 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
   #   left_join(hand_df_summary, by = "trial_num")
   
   # return the trial_df
+  
+
+  
+  
+  
   return(trial_df)
 }
-
-
 
 #####  Test ##### 
 # directory_index = 120
@@ -118,7 +132,6 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 # }
 # 
 # omnibus_df <- do.call(rbind, trial_df_list)
-
 
 ##### Do #####
 plan(multisession)

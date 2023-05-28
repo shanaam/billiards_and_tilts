@@ -1,0 +1,302 @@
+---
+title: "Billiards and Tilts Analysis Notebook"
+author: "Shanaathanan Modchalingam"
+date: "Dec 06, 2021"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+rm(list = ls())      # clean environment
+
+source("../src/helper_funcs.R")
+source("../scripts/figure_funcs.R") 
+library(data.table)
+library(tidyverse)
+library(ggbeeswarm)
+library(ez) #for ANOVAs
+library(effectsize) # for eta-squared
+library(plotly)
+
+```
+
+
+
+## Load all of the throw data
+
+
+
+```{r}
+#load omnibus dataframe
+omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv", 
+                            delim = ",", 
+                            col_types = cols(.default = col_double(), 
+                                             type = col_factor(),
+                                             ppid = col_factor(),
+                                             exp_label = col_factor(),
+                                             experiment = col_factor(),
+                                             hand = col_factor(),
+                                             camera_tilt = col_factor(),
+                                             surface_tilt = col_factor(),
+                                             target = col_factor(),
+                                             surface = col_factor(),
+                                             anim_type = col_factor()))
+```
+
+# Visualizing data (univariate)
+
+```{r}
+test_ppt <- 3
+
+test_df <- omnibus_df %>% filter(ppid == test_ppt)
+
+
+trial <- 250
+trial_df <- filter(test_df, trial_num == trial)
+
+x <- trial_df$flick_velocity_x
+y <- trial_df$flick_velocity_y
+z <- trial_df$flick_velocity_z
+
+x2 <- trial_df$flick_direction_x
+y2 <- trial_df$flick_direction_y
+z2 <- trial_df$flick_direction_z
+
+# plot both
+plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines") %>%
+  add_trace(x = c(0, x2), y = c(0, y2), z = c(0, z2), type = "scatter3d", mode = "lines") %>%
+  layout(scene = list(xaxis = list(title = "x"),
+                      yaxis = list(title = "y"),
+                      zaxis = list(title = "z")))
+
+# note: this is a rotated trial
+```
+
+```{r}
+
+```
+
+
+# Group 
+
+## All throws
+
+```{r}
+# try just animate_surface exp
+animate_surface_trial_summary_df <- omnibus_df %>%
+  filter(exp_label == "animate_surface") %>%
+  group_by(trial_num) %>%
+  summarise(
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation)
+  )
+
+data <- animate_surface_trial_summary_df
+
+# set up plot
+p <- data %>%
+  ggplot(
+    aes(
+      x = trial_num, y = mean_deviation
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Throw Angle (°)"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# p <- p +
+#   scale_y_continuous(
+#     limits = c(-10, 35),
+#     breaks = c(0, 15, 30),
+#     labels = c(0, 15, 30)
+#   ) +
+#   scale_x_continuous(
+#     limits = c(0, 180),
+#     breaks = c(0, 60, 120, 180),
+#     labels = c(0, 60, 120, 180)
+#   )
+
+# set font size to 11
+p <- p +
+  theme(text = element_text(size = 11))
+
+# add confidence intervals
+p <- p + geom_ribbon(
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation
+  ),
+  fill = "#d40000", colour = NA, alpha = 0.3
+  )
+
+
+# add data
+p <- p + geom_line(colour = "#d40000")
+
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#   p,
+#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
+#   height = 4, width = 6
+#   )
+#   }
+
+# ggplotly(p)
+p
+```
+
+
+
+```{r}
+# rest of the exps
+original_exps_trial_summary_df <- omnibus_df %>%
+  filter(exp_label == "original_exps") %>%
+  group_by(experiment, trial_num) %>%
+  summarise(
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation)
+  )
+
+data <- original_exps_trial_summary_df
+
+# set up plot
+p <- data %>%
+  ggplot(
+    aes(
+      x = trial_num, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Throw Angle (°)"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# p <- p +
+#   scale_y_continuous(
+#     limits = c(-10, 35),
+#     breaks = c(0, 15, 30),
+#     labels = c(0, 15, 30)
+#   ) +
+#   scale_x_continuous(
+#     limits = c(0, 180),
+#     breaks = c(0, 60, 120, 180),
+#     labels = c(0, 60, 120, 180)
+#   )
+
+# set font size to 11
+p <- p +
+  theme(text = element_text(size = 11))
+
+# add confidence intervals
+p <- p + geom_ribbon(
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation,
+    fill = experiment
+  ), colour = NA, alpha = 0.3
+  )
+
+
+# add data
+p <- p + geom_line()
+
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#   p,
+#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
+#   height = 4, width = 6
+#   )
+#   }
+
+# ggplotly(p)
+p
+```
+
+
+
+
+
+
+Plot all the trials and see if there are group effects.
+```{r}
+all_throw_summary <- omnibus_df %>%
+  group_by(experiment, trial_num) %>%
+  summarise(mean = mean(error_size, na.rm = TRUE),
+            sd = sd(error_size, na.rm = TRUE), 
+            ci = vector_confint(error_size),
+            n = n(), .groups = "drop")
+```
+
+```{r, warning=FALSE, fig.width=9.5}
+p <- omnibus_df %>%
+  ggplot(aes(x = trial_num, y = error_size)) +
+  # geom_point(alpha = 0.04, aes(colour = experiment)) + 
+  geom_ribbon(data = all_throw_summary, 
+                 aes(y = mean, ymin = mean-ci,
+                     ymax = mean+ci, fill = experiment), 
+              alpha = 0.3) +
+  geom_line(data = all_throw_summary, 
+            aes(y = mean, colour = experiment)) +
+  theme_minimal() +
+  # scale_x_continuous(limits = c(205, 374)) +
+  NULL
+
+# ggplotly(p)
+p
+# save plot
+# ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
+```
+
+## Success manifolds
+### Without any tilts
+```{r, fig.width=9, fig.height=20}
+# ggplotly(plot_success_manifold_no_tilt())
+plot_success_manifold_no_tilt()
+```
+
+### With tilt present
+```{r, fig.width=9, fig.height=20}
+ggplotly(plot_success_manifold_tilt())
+```
+
+
+```{r, include=FALSE}
+NULL
+```
+
