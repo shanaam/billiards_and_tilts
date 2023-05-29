@@ -92,10 +92,10 @@ plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines
 ```{r}
 # plot distribution of error_size
 p <- ggplot(omnibus_df, aes(x = error_size)) +
-  geom_histogram(binwidth = 0.001) +
+  geom_histogram(binwidth = .5) +
   theme_minimal() +
   theme(text = element_text(size = 11)) +
-  labs(x = "Error Size (°)", y = "Count")
+  labs(x = "Error Size (cm)", y = "Count")
 
 p
 ```
@@ -190,8 +190,8 @@ p <- p + geom_line(colour = "#d40000")
 #   )
 #   }
 
-# ggplotly(p)
-p
+ggplotly(p)
+# p
 ```
 
 

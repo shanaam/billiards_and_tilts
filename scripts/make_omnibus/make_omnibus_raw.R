@@ -51,14 +51,42 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
       camera_tilt = per_block_list_camera_tilt,
       surface_tilt = per_block_list_surface_tilt,
       surface = per_block_surface_materials
+    ) %>%
+    mutate(error_size = error_size * 100) %>% # convert error_size to cm
+    filter(error_size < 70) %>% # filter out errors > 70 cm
+    mutate(task_type = recode( # recode tasktype
+      type,
+      "aligned" = "roll_to_target",
+      "rotated" = "roll_to_target"
+    ))
+
+
+  ### baseline correction ###
+  # make a baseline_df
+  bl_df_summary <- omnibus_df %>%
+    filter(baseline_block == TRUE) %>%
+    group_by(ppid, task_type, hand, prior_anim) %>%
+    summarise(
+      bl_deviation = median(raw_throw_deviation, na.rm = TRUE),
+      .groups = "drop"
     )
 
-  ## MODIFY ##
-  omnibus_df$error_size <- omnibus_df$error_size * 100
+  # convert to data.table
+  bl_df_summary <- as.data.table(bl_df_summary)
+  omnibus_df <- as.data.table(omnibus_df)
 
-  ### outlier removal ###
-  # filter out outliers
-  omnibus_df <- omnibus_df %>% filter(error_size < 70)
+  # non equi join omnibus_df and bl_df_summary
+  omnibus_df <- omnibus_df[
+    bl_df_summary, 
+    on = .(ppid, task_type, hand, prior_anim),
+    nomatch = 0
+    ]
+
+  # subtract the baseline from the raw_throw_deviation
+  omnibus_df <- omnibus_df %>%
+    mutate(
+      throw_deviation = raw_throw_deviation - bl_deviation
+    )
 
   # save the omnibus_df
   fwrite(omnibus_df, file = paste(to_save_dir_path, "omnibus_raw.csv", sep = "/"))
@@ -74,64 +102,72 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 
 
   ## ALL EXPS ##
-  ### remove things ###
+  ### remove and add things ###
   trial_df <- trial_df %>%
-    filter(type != "instruction") %>%
+    filter(!(type %in% c("instruction", "animate_surface"))) %>%
     select(
       -"session_num", -"indicator_angle", -"show_path", -"tilt_after_fire",
       -"flick_multiplier", -"step_timestamp"
-    )
-
-  ### add things ###
-  # add a column for the throw_deviation
-  trial_df <- trial_df %>%
-    mutate(throw_deviation = atan2_2d(
+    ) %>% # add a column for the throw_deviation
+    mutate(raw_throw_deviation = atan2_2d(
       flick_velocity_x, flick_velocity_z,
       per_block_targetListToUse
     ))
 
   ## ORIGIAL EXPS ##
   if (trial_df$experiment[1] %in% original_exps) {
+    
     ### remove things ###
     trial_df <- trial_df %>%
       select(
         -starts_with("tracking_"), -starts_with("hand_"),
         -starts_with("pinball_path")
-      )
-
-    ### add things ###
-    trial_df$anim_type <- "none"
-    trial_df$exp_label <- "original_exps"
-
-    # use case_when to add a column for test_type
-    trial_df <- trial_df %>%
+      ) %>% 
+      filter(block_num > 4) %>% # filter out practice blocks
+      mutate(anim_type = "none", # add anim_type and exp_label columns
+        exp_label = "original_exps") %>% # add test_type column
       mutate(test_type = case_when(
-        (trial_num_in_block %in% c(1, 2, 3, 4) & block_num == 11) ~ "training_init",
-        (trial_num_in_block %in% c(77, 78, 79, 80) & block_num == 11) ~ "training_end",
-        (trial_num_in_block %in% c(1, 2, 3, 4) & block_num == 12) ~ "washout_init",
-        (trial_num_in_block %in% c(37, 38, 39, 40) & block_num == 12) ~ "washout_end",
-        (trial_num_in_block %in% c(1, 2, 3, 4) & block_num == 13) ~ "transfer_init",
-        (trial_num_in_block %in% c(37, 38, 39, 40) & block_num == 13) ~ "transfer_end",
+        (trial_num_in_block %in% (1:4) & block_num == 11) ~ "training_init",
+        (trial_num_in_block %in% (77:80) & block_num == 11) ~ "training_end",
+        (trial_num_in_block %in% (1:4) & block_num == 12) ~ "washout_init",
+        (trial_num_in_block %in% (37:40) & block_num == 12) ~ "washout_end",
+        (trial_num_in_block %in% (1:4) & block_num == 13) ~ "transfer_init",
+        (trial_num_in_block %in% (37:40) & block_num == 13) ~ "transfer_end",
         TRUE ~ "other"
+      )) %>%
+      mutate(prior_anim = "none"
+      ) %>%
+      mutate(baseline_block = case_when( #label baseline blocks
+        block_num %in% (6:8) ~ TRUE,
+        TRUE ~ FALSE
       ))
+    
+    
   } else if (trial_df$experiment[1] == "a_ball_roll_animate_surface") {
     ## ANIMATE SURFACE EXP ##
-    ### remove things ###
+    ### remove and add things ###
     trial_df <- trial_df %>%
-      select(-starts_with("hand_pos_flick"), -starts_with("ball_pos_step1"))
-
-    ### add things ###
-    trial_df$exp_label <- "animate_surface"
-
-    # use case_when to add a column for test_type
-    trial_df <- trial_df %>%
-      mutate(test_type = case_when(
-        (trial_num_in_block %in% c(1, 2, 3, 4) & block_num == 14) ~ "training_init",
-        (trial_num_in_block %in% c(77, 78, 79, 80) & block_num == 14) ~ "training_end",
-        (block_num %in% c(16, 24, 32, 40)) ~ "washout_half_anim",
-        (block_num %in% c(20, 28, 36, 44)) ~ "washout_full_anim",
+      select(-starts_with("hand_pos_flick"), 
+      -starts_with("ball_pos_step1")) %>% # remove columns
+      filter(block_num > 4) %>% # filter out practice blocks
+      mutate(exp_label = "animate_surface") %>% # add exp_label column
+      mutate(test_type = case_when( # add test_type column
+        (trial_num_in_block %in% (1:4) & block_num == 14) ~ "training_init",
+        (trial_num_in_block %in% (77:80) & block_num == 14) ~ "training_end",
+        (block_num %in% c(8, 16, 24, 32, 40)) ~ "washout_anim",
+        (block_num %in% c(11, 20, 28, 36, 44)) ~ "washout_anim",
         (block_num == 48) ~ "washout_wait_anim",
         TRUE ~ "other"
+      )) %>%
+      mutate(prior_anim = case_when(
+        (block_num %in% c(8, 16, 24, 32, 40)) ~ "half_anim",
+        (block_num %in% c(11, 20, 28, 36, 44)) ~ "full_anim",
+        (block_num == 48) ~ "wait_anim",
+        TRUE ~ "none"
+      )) %>%
+      mutate(baseline_block = case_when( #label baseline blocks
+        block_num %in% (5:11) ~ TRUE,
+        TRUE ~ FALSE
       ))
   }
 
@@ -160,12 +196,12 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 }
 
 #####  Test #####
-# directory_index = 120
-#
-#
-# ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
-# # make a list of length length(ppt_list)
-# trial_df_list <- vector("list", length(ppt_list))
+directory_index = 120
+
+ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
+# make a list of length length(ppt_list)
+trial_df_list <- vector("list", length(ppt_list))
+
 # for (i in 1:length(ppt_list)) {
 #   trial_df_list[[i]] <- make_one_ppt_file(i, ppt_list)
 # }
