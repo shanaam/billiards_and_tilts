@@ -19,37 +19,35 @@ pallete$rot_c <- "#d40000"
 pallete$rot_nc <- "#f9982c"
 pallete$tilt_c <- "#07509b"
 pallete$tilt_nc <- "#5fb696"
+pallete$rot_15_c <- "#740000"
+pallete$rot_15_nc <- "#99982c"
 
-omnibus_path <- "data/omnibus/omnibus_throws.csv"
-with_path_omnibus <- "data/omnibus/omnibus_throws_with_path.csv"
+omnibus_path <- "data/processed/omnibus/omnibus_raw.csv"
+with_path_omnibus <- "data/processed/omnibus/omnibus_throws_with_path.csv"
 
 #### HELPER FUNCTIONS
 load_main_experiments <- function(omnibus_path) {
+  original_exps <- c("rot15_cued_tilt", "rot15_uncued", "tilt_uncued_rot", 
+                     "tilt_uncued_norot", "tilt_cued_rot", "tilt_cued_norot")
+  
   # load the data
-  data <- read_delim(omnibus_path,
-    delim = ",",
-    col_types = cols(
-      .default = col_double(),
-      type = col_factor(),
-      ppid = col_factor(),
-      experiment = col_factor(),
-      hand = col_factor(),
-      per_block_list_camera_tilt = col_factor(),
-      # per_block_list_surface_tilt = col_factor(),
-      per_block_targetListToUse = col_factor(),
-      per_block_surface_materials = col_factor(),
-      trial_set = col_factor(),
-      pinball_path_x = col_character(),
-      pinball_path_y = col_character(),
-      pinball_path_z = col_character()
-    ), show_col_types = FALSE
+  data <- read_delim(
+    omnibus_path, 
+    delim = ",", 
+    col_types = cols(.default = col_double(), 
+                     type = col_factor(),
+                     ppid = col_factor(),
+                     exp_label = col_factor(),
+                     experiment = col_factor(),
+                     hand = col_factor(),
+                     camera_tilt = col_factor(),
+                     surface_tilt = col_factor(),
+                     target = col_factor(),
+                     surface = col_factor(),
+                     anim_type = col_factor()), 
+                     show_col_types = FALSE
   ) %>%
-    filter(experiment != "rot15_cued_tilt", experiment != "rot15_uncued")
-
-  data$error_size <- data$error_size * 100
-
-  # rename column targetListToUse to target
-  data <- data %>% rename(target = "per_block_targetListToUse")
+    filter(experiment %in% original_exps)
 
   return(data)
 }
@@ -57,13 +55,13 @@ load_main_experiments <- function(omnibus_path) {
 
 #### PLOTTING FUNCTIONS
 # function to plot the learning curve
-plot_learning_curve <- function() {
+plot_original_learning_curve <- function(omnibus_path) {
   # load the data
   data <- load_main_experiments(omnibus_path)
 
   # make summary df
   data_group <- data %>%
-    group_by(experiment, trial_num) %>%
+    group_by(experiment, block_num, trial_num) %>%
     summarise(
       group_mean = mean(error_size, na.rm = TRUE),
       sd = sd(error_size, na.rm = TRUE),
@@ -78,55 +76,57 @@ plot_learning_curve <- function() {
       colour = experiment, fill = experiment
     ))
 
-  # add helper lines
-  # add horizontal line at 0
-  p <- p +
-    geom_hline(
-      yintercept = 0, colour = "#CCCCCC",
-      linetype = "dashed"
-    )
-
-  # make backgrount from 0 to 80 grey
-  p <- p +
-    geom_rect(
-      xmin = 0, xmax = 80,
-      ymin = 0, ymax = 60,
-      fill = "#CCCCCC", colour = NA,
-      alpha = 0.5
-    )
+  # # add helper lines
+  # # add horizontal line at 0
+  # p <- p +
+  #   geom_hline(
+  #     yintercept = 0, colour = "#CCCCCC",
+  #     linetype = "dashed"
+  #   )
+  # 
+  # # make backgrount from 0 to 80 grey
+  # p <- p +
+  #   geom_rect(
+  #     xmin = 0, xmax = 80,
+  #     ymin = 0, ymax = 60,
+  #     fill = "#CCCCCC", colour = NA,
+  #     alpha = 0.5
+  #   )
 
   # add confidence intervals and data
   p <- p +
     geom_ribbon(
-      data = filter(data_group, trial_num >= 0, trial_num <= 80),
+      data = filter(data_group, block_num == 11),
       aes(ymin = group_mean - ci, ymax = group_mean + ci),
       colour = NA, alpha = 0.3
     ) +
-    geom_line(data = filter(data_group, trial_num >= 0, trial_num <= 80))
+    geom_line(data = filter(data_group, block_num == 11))
 
   p <- p +
     geom_ribbon(
-      data = filter(data_group, trial_num >= 81, trial_num <= 120),
+      data = filter(data_group, block_num == 12),
       aes(ymin = group_mean - ci, ymax = group_mean + ci),
       colour = NA, alpha = 0.3
     ) +
-    geom_line(data = filter(data_group, trial_num >= 81, trial_num <= 120))
+    geom_line(data = filter(data_group, block_num == 12))
 
   # theme changes
   p <- p + theme_classic() +
     xlab("Trial Number") +
     ylab("Error Size (cm)") +
-    scale_x_continuous(limits = c(1, 120), breaks = seq(0, 120, by = 40)) +
-    scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
+    # scale_x_continuous(limits = c(1, 120), breaks = seq(0, 120, by = 40)) +
+    # scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
     theme(text = element_text(size = 35))
 
   # set colour palette
   p <- p + scale_colour_manual(values = c(
     pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc
+    pallete$rot_c, pallete$rot_nc,
+    pallete$rot_15_c, pallete$rot_15_nc
   )) + scale_fill_manual(values = c(
     pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc
+    pallete$rot_c, pallete$rot_nc,
+    pallete$rot_15_c, pallete$rot_15_nc
   ))
 
   # remove legend
@@ -136,7 +136,7 @@ plot_learning_curve <- function() {
 }
 
 # function to plot the learning curve
-plot_rebound <- function() {
+plot_rebound <- function(omnibus_path) {
   # load the data
   data <- load_main_experiments(omnibus_path)
 
@@ -194,10 +194,12 @@ plot_rebound <- function() {
   # set colour palette
   p <- p + scale_colour_manual(values = c(
     pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc
+    pallete$rot_c, pallete$rot_nc,
+    pallete$rot_15_c, pallete$rot_15_nc
   )) + scale_fill_manual(values = c(
     pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc
+    pallete$rot_c, pallete$rot_nc,
+    pallete$rot_15_c, pallete$rot_15_nc
   ))
 
   # remove legend
@@ -597,7 +599,7 @@ plot_success_manifold_no_tilt <- function() {
   p <- data %>%
     ggplot(aes(
       text = paste("ppt:", ppid, " trial:", trial_num),
-      x = throw_angle, y = throw_magnitude,
+      x = throw_deviation, y = throw_magnitude,
       colour = error_size
     ))
 
@@ -679,7 +681,7 @@ plot_success_manifold_tilt <- function() {
   p <- data %>%
     ggplot(aes(
       text = paste("ppt:", ppid, " trial:", trial_num),
-      x = throw_angle, y = throw_magnitude,
+      x = throw_deviation, y = throw_magnitude,
       colour = error_size
     ))
 

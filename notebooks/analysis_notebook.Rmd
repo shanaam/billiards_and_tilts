@@ -23,6 +23,9 @@ library(ez) #for ANOVAs
 library(effectsize) # for eta-squared
 library(plotly)
 
+# vars
+omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
+
 ```
 
 
@@ -46,6 +49,9 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
                                              target = col_factor(),
                                              surface = col_factor(),
                                              anim_type = col_factor()))
+
+original_exps <- c("rot15_cued_tilt", "rot15_uncued", "tilt_uncued_rot", 
+                   "tilt_uncued_norot", "tilt_cued_rot", "tilt_cued_norot")
 ```
 
 # Visualizing data (univariate)
@@ -77,10 +83,32 @@ plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines
 # note: this is a rotated trial
 ```
 
+
 ```{r}
 
 ```
 
+
+```{r}
+# plot distribution of error_size
+p <- ggplot(omnibus_df, aes(x = error_size)) +
+  geom_histogram(binwidth = 0.001) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  labs(x = "Error Size (°)", y = "Count")
+
+p
+```
+
+```{r}
+
+```
+
+```{r}
+
+
+
+```
 
 # Group 
 
@@ -244,10 +272,14 @@ p <- p + geom_line()
 #   )
 #   }
 
-# ggplotly(p)
-p
+ggplotly(p)
+
+# p
 ```
 
+```{r}
+ggplotly(plot_original_learning_curve(omnibus_path))
+```
 
 
 

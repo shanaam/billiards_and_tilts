@@ -49,6 +49,14 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     surface_tilt = per_block_list_surface_tilt,
     surface = per_block_surface_materials)
   
+  ## MODIFY ##
+  omnibus_df$error_size <- omnibus_df$error_size*100
+  
+  ### outlier removal ###
+  
+  # filter out outliers
+  omnibus_df <- omnibus_df %>% filter(error_size < 70)
+  
   # save the omnibus_df
   fwrite(omnibus_df, file = paste(to_save_dir_path, "omnibus_raw.csv", sep = "/"))
 }
