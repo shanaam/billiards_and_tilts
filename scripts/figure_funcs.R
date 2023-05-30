@@ -43,8 +43,12 @@ load_main_experiments <- function(omnibus_path) {
                      camera_tilt = col_factor(),
                      surface_tilt = col_factor(),
                      target = col_factor(),
+                     test_type = col_factor(),
+                     prior_anim = col_factor(),
+                     baseline_block = col_factor(),
+                     task_type = col_factor(),
                      surface = col_factor(),
-                     anim_type = col_factor()), 
+                     anim_type = col_factor()),
                      show_col_types = FALSE
   ) %>%
     filter(experiment %in% original_exps)
@@ -136,7 +140,7 @@ plot_original_learning_curve <- function(omnibus_path) {
 }
 
 # function to plot the learning curve
-plot_rebound <- function(omnibus_path) {
+plot_original_rebound <- function(omnibus_path) {
   # load the data
   data <- load_main_experiments(omnibus_path)
 
@@ -157,38 +161,38 @@ plot_rebound <- function(omnibus_path) {
       colour = experiment, fill = experiment
     ))
 
-  # make background from 0 to 40 grey
-  p <- p +
-    geom_rect(
-      xmin = 0, xmax = 40,
-      ymin = 0, ymax = 60,
-      fill = "#CCCCCC", colour = NA,
-      alpha = 0.5
-    )
-
-  # add helper lines
-  # add horizontal line at 0
-  p <- p +
-    geom_hline(
-      yintercept = 0, colour = "#CCCCCC",
-      linetype = "dashed"
-    )
+  # # make background from 0 to 40 grey
+  # p <- p +
+  #   geom_rect(
+  #     xmin = 0, xmax = 40,
+  #     ymin = 0, ymax = 60,
+  #     fill = "#CCCCCC", colour = NA,
+  #     alpha = 0.5
+  #   )
+  # 
+  # # add helper lines
+  # # add horizontal line at 0
+  # p <- p +
+  #   geom_hline(
+  #     yintercept = 0, colour = "#CCCCCC",
+  #     linetype = "dashed"
+  #   )
 
   # add confidence intervals and data
   p <- p +
     geom_ribbon(
-      data = filter(data_group, trial_num > 0),
+      data = filter(data_group, trial_num > 334),
       aes(ymin = group_mean - ci, ymax = group_mean + ci),
       colour = NA, alpha = 0.3
     ) +
-    geom_line(data = filter(data_group, trial_num > 0))
+    geom_line(data = filter(data_group, trial_num > 334))
 
   # theme changes
   p <- p + theme_classic() +
     xlab("Trial Number") +
     ylab("Error Size (cm)") +
-    scale_x_continuous(limits = c(1, 40), breaks = seq(0, 40, by = 40)) +
-    scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
+    # scale_x_continuous(limits = c(1, 40), breaks = seq(0, 40, by = 40)) +
+    # scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
     theme(text = element_text(size = 35))
 
   # set colour palette

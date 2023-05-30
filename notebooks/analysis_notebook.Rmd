@@ -26,6 +26,18 @@ library(plotly)
 # vars
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
 
+# convert the above into a list
+pallete_list <- c("rot_c" = "#d40000",
+             "rot_nc" = "#f9982c",
+             "tilt_c" = "#07509b",
+             "tilt_nc" = "#5fb696",
+             "rot_15_c" = "#740000",
+             "rot_15_nc" = "#99982c",
+             "none" = "#d40000",
+             "half" = "#5fb696",
+             "full" = "#07509b",
+             "wait" = "#99982c")
+
 ```
 
 
@@ -47,6 +59,10 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
                                              camera_tilt = col_factor(),
                                              surface_tilt = col_factor(),
                                              target = col_factor(),
+                                             test_type = col_factor(),
+                                             prior_anim = col_factor(),
+                                             baseline_block = col_factor(),
+                                             task_type = col_factor(),
                                              surface = col_factor(),
                                              anim_type = col_factor()))
 
@@ -118,7 +134,7 @@ p
 # try just animate_surface exp
 animate_surface_trial_summary_df <- omnibus_df %>%
   filter(exp_label == "animate_surface") %>%
-  group_by(trial_num) %>%
+  group_by(prior_anim, block_num, trial_num_in_block, trial_num) %>%
   summarise(
     mean_deviation = mean(throw_deviation),
     ci_deviation = vector_confint(throw_deviation)
@@ -130,7 +146,9 @@ data <- animate_surface_trial_summary_df
 p <- data %>%
   ggplot(
     aes(
-      x = trial_num, y = mean_deviation
+      x = trial_num, y = mean_deviation,
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation
     )
   ) +
   theme_classic() +
@@ -167,18 +185,25 @@ p <- p +
 p <- p +
   theme(text = element_text(size = 11))
 
-# add confidence intervals
-p <- p + geom_ribbon(
-  aes(
-    ymin = mean_deviation - ci_deviation,
-    ymax = mean_deviation + ci_deviation
-  ),
-  fill = "#d40000", colour = NA, alpha = 0.3
-  )
-
-
-# add data
-p <- p + geom_line(colour = "#d40000")
+# repeat for prior_anim == "half", "full" and "wait"
+for (unique_prior_anim in unique(data$prior_anim)) {
+  # get the data for this block
+  to_plot_data <- filter(data, prior_anim == unique_prior_anim)
+  # loop through the unique blocks in to_plot_data
+  for (block in unique(to_plot_data$block_num)) {
+    # get the data for this block
+    block_data <- filter(to_plot_data, block_num == block)
+    # add the data, use the pallete_list to get the colour
+    p <- p + geom_ribbon(
+      data = block_data,
+      aes(fill = prior_anim),
+      colour = NA, alpha = 0.3
+      ) + geom_line(
+      data = block_data,
+      aes(colour = prior_anim))
+    
+  }
+}
 
 
 # # save
@@ -281,8 +306,11 @@ ggplotly(p)
 ggplotly(plot_original_learning_curve(omnibus_path))
 ```
 
+visible vs non-visible tilt doesn't affect the 15-degree rotation condition. But affects all other conditions. So 15-degree rotation
 
-
+```{r}
+ggplotly(plot_original_rebound(omnibus_path))
+```
 
 
 Plot all the trials and see if there are group effects.

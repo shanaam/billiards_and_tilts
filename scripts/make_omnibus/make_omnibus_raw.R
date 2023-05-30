@@ -156,13 +156,13 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         (trial_num_in_block %in% (77:80) & block_num == 14) ~ "training_end",
         (block_num %in% c(8, 16, 24, 32, 40)) ~ "washout_anim",
         (block_num %in% c(11, 20, 28, 36, 44)) ~ "washout_anim",
-        (block_num == 48) ~ "washout_wait_anim",
+        (block_num == 48) ~ "washout_no_anim",
         TRUE ~ "other"
       )) %>%
       mutate(prior_anim = case_when(
         (block_num %in% c(8, 16, 24, 32, 40)) ~ "half_anim",
         (block_num %in% c(11, 20, 28, 36, 44)) ~ "full_anim",
-        (block_num == 48) ~ "wait_anim",
+        (block_num == 48) ~ "half_anim",
         TRUE ~ "none"
       )) %>%
       mutate(baseline_block = case_when( #label baseline blocks
@@ -187,9 +187,6 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
   #   left_join(hand_df_summary, by = "trial_num")
 
   # return the trial_df
-
-
-
 
 
   return(trial_df)
