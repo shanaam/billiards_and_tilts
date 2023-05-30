@@ -67,8 +67,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     filter(baseline_block == TRUE) %>%
     group_by(ppid, task_type, hand, prior_anim) %>%
     summarise(
-      bl_deviation = median(raw_throw_deviation, na.rm = TRUE),
-      .groups = "drop"
+      bl_deviation = median(raw_throw_deviation, na.rm = TRUE)
     )
 
   # convert to data.table
@@ -87,6 +86,10 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     mutate(
       throw_deviation = raw_throw_deviation - bl_deviation
     )
+
+  # arrange by ppid and trial_num
+  omnibus_df <- omnibus_df %>%
+    arrange(ppid, trial_num)
 
   # save the omnibus_df
   fwrite(omnibus_df, file = paste(to_save_dir_path, "omnibus_raw.csv", sep = "/"))
@@ -127,12 +130,12 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       mutate(anim_type = "none", # add anim_type and exp_label columns
         exp_label = "original_exps") %>% # add test_type column
       mutate(test_type = case_when(
-        (trial_num_in_block %in% (1:4) & block_num == 11) ~ "training_init",
-        (trial_num_in_block %in% (77:80) & block_num == 11) ~ "training_end",
-        (trial_num_in_block %in% (1:4) & block_num == 12) ~ "washout_init",
-        (trial_num_in_block %in% (37:40) & block_num == 12) ~ "washout_end",
-        (trial_num_in_block %in% (1:4) & block_num == 13) ~ "transfer_init",
-        (trial_num_in_block %in% (37:40) & block_num == 13) ~ "transfer_end",
+        (trial_num_in_block %in% (1:8) & block_num == 11) ~ "training_init",
+        (trial_num_in_block %in% (73:80) & block_num == 11) ~ "training_end",
+        (trial_num_in_block %in% (1:8) & block_num == 12) ~ "washout_init",
+        (trial_num_in_block %in% (33:40) & block_num == 12) ~ "washout_end",
+        (trial_num_in_block %in% (1:8) & block_num == 14) ~ "transfer_init",
+        (trial_num_in_block %in% (33:40) & block_num == 14) ~ "transfer_end",
         TRUE ~ "other"
       )) %>%
       mutate(prior_anim = "none"
@@ -152,8 +155,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       filter(block_num > 4) %>% # filter out practice blocks
       mutate(exp_label = "animate_surface") %>% # add exp_label column
       mutate(test_type = case_when( # add test_type column
-        (trial_num_in_block %in% (1:4) & block_num == 14) ~ "training_init",
-        (trial_num_in_block %in% (77:80) & block_num == 14) ~ "training_end",
+        (trial_num_in_block %in% (1:8) & block_num == 14) ~ "training_init",
+        (trial_num_in_block %in% (73:80) & block_num == 14) ~ "training_end",
         (block_num %in% c(8, 16, 24, 32, 40)) ~ "washout_anim",
         (block_num %in% c(11, 20, 28, 36, 44)) ~ "washout_anim",
         (block_num == 48) ~ "washout_no_anim",

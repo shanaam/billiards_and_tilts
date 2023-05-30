@@ -120,7 +120,8 @@ plot_original_learning_curve <- function(omnibus_path) {
     ylab("Error Size (cm)") +
     # scale_x_continuous(limits = c(1, 120), breaks = seq(0, 120, by = 40)) +
     # scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
-    theme(text = element_text(size = 35))
+    # theme(text = element_text(size = 35)) +
+    NULL
 
   # set colour palette
   p <- p + scale_colour_manual(values = c(
@@ -193,7 +194,8 @@ plot_original_rebound <- function(omnibus_path) {
     ylab("Error Size (cm)") +
     # scale_x_continuous(limits = c(1, 40), breaks = seq(0, 40, by = 40)) +
     # scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, 10)) +
-    theme(text = element_text(size = 35))
+    # theme(text = element_text(size = 35)) +
+    NULL
 
   # set colour palette
   p <- p + scale_colour_manual(values = c(

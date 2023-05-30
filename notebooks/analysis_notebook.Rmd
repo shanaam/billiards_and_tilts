@@ -1,14 +1,13 @@
 ---
 title: "Billiards and Tilts Analysis Notebook"
 author: "Shanaathanan Modchalingam"
-date: "Dec 06, 2021"
 output: 
   html_notebook:
     toc: true
     toc_float: true
     number_sections: true
     df_print: paged
-    
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
@@ -22,6 +21,8 @@ library(ggbeeswarm)
 library(ez) #for ANOVAs
 library(effectsize) # for eta-squared
 library(plotly)
+
+options(dplyr.summarise.inform=F)
 
 # vars
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
@@ -116,23 +117,188 @@ p <- ggplot(omnibus_df, aes(x = error_size)) +
 p
 ```
 
-```{r}
+# Original Experiments
 
+### Omnibus Plot for ANGLES
+Note: Blues = Acceleration Perturbations
+```{r}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(exp_label == "original_exps") %>%
+  group_by(experiment, test_type, trial_num) %>%
+  summarise(
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation),
+    .groups = "drop"
+  )
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = trial_num, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Throw Angle (°)"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# p <- p +
+#   scale_y_continuous(
+#     limits = c(-10, 35),
+#     breaks = c(0, 15, 30),
+#     labels = c(0, 15, 30)
+#   ) +
+#   scale_x_continuous(
+#     limits = c(0, 180),
+#     breaks = c(0, 60, 120, 180),
+#     labels = c(0, 60, 120, 180)
+#   )
+
+# set font size to 11
+p <- p +
+  theme(text = element_text(size = 11))
+
+# add confidence intervals and data points
+p <- p + geom_ribbon(
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation,
+    fill = experiment
+  ), colour = NA, alpha = 0.3
+  ) + geom_line()
+
+# set colour palette
+p <- p + scale_colour_manual(values = c(
+  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
+  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
+  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
+)) + scale_fill_manual(values = c(
+  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
+  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
+  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
+))
+
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#   p,
+#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
+#   height = 4, width = 6
+#   )
+#   }
+
+ggplotly(p)
+
+# p
+```
+### Trial sets of interest only
+Note: Blues = Acceleration Perturbations
+```{r}
+# filter out just the trials of interest
+data_per_group <- data_per_group %>%
+  filter(
+    test_type != "other"
+  ) 
+# add a dummy column with repeating sequence 
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>% 
+  mutate(dummy_x = rep(1:(nrow(data_per_group)/6), 
+                       length.out = nrow(data_per_group)))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Throw Angle (°)"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# add confidence intervals and data points
+for (unique_test_type in unique(data_per_group$test_type)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+    ) + geom_line(
+      data = to_plot_data
+    )
+}
+
+# set colour palette
+p <- p + scale_colour_manual(values = c(
+  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
+  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
+  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
+)) + scale_fill_manual(values = c(
+  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
+  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
+  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
+))
+
+ggplotly(p)
 ```
 
+
+### Plots for ERROR
+Note: Blues = Acceleration Perturbations
 ```{r}
-
-
-
+ggplotly(plot_original_learning_curve(omnibus_path))
 ```
 
-# Group 
+visible vs non-visible tilt doesn't affect the 15-degree rotation condition. But affects all other conditions. So 15-degree rotation
 
-## All throws
-
+Note: Blues = Acceleration Perturbations
 ```{r}
-# try just animate_surface exp
-animate_surface_trial_summary_df <- omnibus_df %>%
+ggplotly(plot_original_rebound(omnibus_path))
+```
+
+
+
+# Animated Surface Follow-up
+
+### Omnibus Plot for ANGLES
+```{r}
+# isolate animate_surface exp
+data_per_group <- omnibus_df %>%
   filter(exp_label == "animate_surface") %>%
   group_by(prior_anim, block_num, trial_num_in_block, trial_num) %>%
   summarise(
@@ -140,10 +306,8 @@ animate_surface_trial_summary_df <- omnibus_df %>%
     ci_deviation = vector_confint(throw_deviation)
   )
 
-data <- animate_surface_trial_summary_df
-
 # set up plot
-p <- data %>%
+p <- data_per_group %>%
   ggplot(
     aes(
       x = trial_num, y = mean_deviation,
@@ -186,9 +350,9 @@ p <- p +
   theme(text = element_text(size = 11))
 
 # repeat for prior_anim == "half", "full" and "wait"
-for (unique_prior_anim in unique(data$prior_anim)) {
+for (unique_prior_anim in unique(data_per_group$prior_anim)) {
   # get the data for this block
-  to_plot_data <- filter(data, prior_anim == unique_prior_anim)
+  to_plot_data <- filter(data_per_group, prior_anim == unique_prior_anim)
   # loop through the unique blocks in to_plot_data
   for (block in unique(to_plot_data$block_num)) {
     # get the data for this block
@@ -219,25 +383,38 @@ ggplotly(p)
 # p
 ```
 
-
-
+## Difference between half and full animation washout trials
 ```{r}
-# rest of the exps
-original_exps_trial_summary_df <- omnibus_df %>%
-  filter(exp_label == "original_exps") %>%
-  group_by(experiment, trial_num) %>%
+# first, isolate the data
+data <- omnibus_df %>%
+  filter(
+    exp_label == "animate_surface",
+    baseline_block == FALSE,
+    test_type == "washout_anim"
+    )
+
+data_per_ppt <- data %>%
+  group_by(ppid, prior_anim, trial_num_in_block) %>%
   summarise(
-    mean_deviation = mean(throw_deviation),
-    ci_deviation = vector_confint(throw_deviation)
+    ppt_mean_deviation = median(throw_deviation),
+    ppt_ci_deviation = vector_confint(throw_deviation),
+    n = n()
   )
 
-data <- original_exps_trial_summary_df
+data_per_group <- data_per_ppt %>%
+  group_by(prior_anim, trial_num_in_block) %>%
+  summarise(
+    mean_deviation = mean(ppt_mean_deviation),
+    ci_deviation = vector_confint(ppt_mean_deviation),
+    n = sum(n)
+  )
 
 # set up plot
-p <- data %>%
+p <- data_per_group %>%
   ggplot(
     aes(
-      x = trial_num, y = mean_deviation, colour = experiment
+      x = trial_num_in_block, y = mean_deviation,
+      colour = prior_anim, fill = prior_anim
     )
   ) +
   theme_classic() +
@@ -258,90 +435,30 @@ p <- p +
     colour = "#CCCCCC", linetype = "dashed"
   )
 
-# p <- p +
-#   scale_y_continuous(
-#     limits = c(-10, 35),
-#     breaks = c(0, 15, 30),
-#     labels = c(0, 15, 30)
-#   ) +
-#   scale_x_continuous(
-#     limits = c(0, 180),
-#     breaks = c(0, 60, 120, 180),
-#     labels = c(0, 60, 120, 180)
-#   )
-
-# set font size to 11
-p <- p +
-  theme(text = element_text(size = 11))
-
-# add confidence intervals
-p <- p + geom_ribbon(
-  aes(
-    ymin = mean_deviation - ci_deviation,
-    ymax = mean_deviation + ci_deviation,
-    fill = experiment
-  ), colour = NA, alpha = 0.3
-  )
-
-
-# add data
-p <- p + geom_line()
-
-
-# # save
-# if (save_plots) {
-#   ggsave(
-#   p,
-#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-#   height = 4, width = 6
-#   )
-#   }
+# add data points
+p <- p + geom_beeswarm(
+  data = data_per_ppt,
+  aes(y = ppt_mean_deviation, 
+      colour = prior_anim),
+  size = 1, dodge.width = 0.5
+  ) + geom_ribbon(
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation
+      ),
+    colour = NA, alpha = 0.3
+  ) + geom_line()
 
 ggplotly(p)
-
-# p
-```
-
-```{r}
-ggplotly(plot_original_learning_curve(omnibus_path))
-```
-
-visible vs non-visible tilt doesn't affect the 15-degree rotation condition. But affects all other conditions. So 15-degree rotation
-
-```{r}
-ggplotly(plot_original_rebound(omnibus_path))
 ```
 
 
-Plot all the trials and see if there are group effects.
-```{r}
-all_throw_summary <- omnibus_df %>%
-  group_by(experiment, trial_num) %>%
-  summarise(mean = mean(error_size, na.rm = TRUE),
-            sd = sd(error_size, na.rm = TRUE), 
-            ci = vector_confint(error_size),
-            n = n(), .groups = "drop")
+```{r, include=FALSE}
+## EMPTY
 ```
 
-```{r, warning=FALSE, fig.width=9.5}
-p <- omnibus_df %>%
-  ggplot(aes(x = trial_num, y = error_size)) +
-  # geom_point(alpha = 0.04, aes(colour = experiment)) + 
-  geom_ribbon(data = all_throw_summary, 
-                 aes(y = mean, ymin = mean-ci,
-                     ymax = mean+ci, fill = experiment), 
-              alpha = 0.3) +
-  geom_line(data = all_throw_summary, 
-            aes(y = mean, colour = experiment)) +
-  theme_minimal() +
-  # scale_x_continuous(limits = c(205, 374)) +
-  NULL
 
-# ggplotly(p)
-p
-# save plot
-# ggsave(p, height = 9, width = 16, device = "svg", filename = "data/figs/all_throws.svg")
-```
+# Deprecated (Don't Run)
 
 ## Success manifolds
 ### Without any tilts
