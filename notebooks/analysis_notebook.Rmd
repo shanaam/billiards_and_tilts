@@ -28,15 +28,15 @@ options(dplyr.summarise.inform=F)
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
 
 # convert the above into a list
-pallete_list <- c("rot_c" = "#d40000",
-             "rot_nc" = "#f9982c",
-             "tilt_c" = "#07509b",
-             "tilt_nc" = "#5fb696",
-             "rot_15_c" = "#740000",
-             "rot_15_nc" = "#99982c",
-             "none" = "#d40000",
-             "half" = "#5fb696",
-             "full" = "#07509b",
+pallete_list <- c("rot30_cued_tilt" = "#d40000",
+             "rot30_uncued" = "#f9982c",
+             "accel_cued_tilt" = "#07509b",
+             "accel_uncued" = "#5fb696",
+             "rot15_cued_tilt" = "#740000",
+             "rot15_uncued" = "#99982c",
+             "none" = "#f9982c",
+             "half_anim" = "#5fb696",
+             "full_anim" = "#07509b",
              "wait" = "#99982c")
 
 ```
@@ -65,10 +65,8 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
                                              baseline_block = col_factor(),
                                              task_type = col_factor(),
                                              surface = col_factor(),
-                                             anim_type = col_factor()))
-
-original_exps <- c("rot15_cued_tilt", "rot15_uncued", "tilt_uncued_rot", 
-                   "tilt_uncued_norot", "tilt_cued_rot", "tilt_cued_norot")
+                                             anim_type = col_factor())) %>%
+  filter(block_num > 4) # filter out practice blocks
 ```
 
 # Visualizing data (univariate)
@@ -119,7 +117,7 @@ p
 
 # Original Experiments
 
-### Omnibus Plot for ANGLES
+### Plot ANGULAR DEVIATIONS (hand angles)
 Note: Blues = Acceleration Perturbations
 ```{r}
 # rest of the exps
@@ -183,15 +181,9 @@ p <- p + geom_ribbon(
   ) + geom_line()
 
 # set colour palette
-p <- p + scale_colour_manual(values = c(
-  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
-  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
-  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
-)) + scale_fill_manual(values = c(
-  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
-  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
-  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
-))
+p <- p + 
+  scale_colour_manual(values = pallete_list) + 
+  scale_fill_manual(values = pallete_list)
 
 
 # # save
@@ -264,38 +256,168 @@ for (unique_test_type in unique(data_per_group$test_type)) {
 }
 
 # set colour palette
-p <- p + scale_colour_manual(values = c(
-  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
-  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
-  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
-)) + scale_fill_manual(values = c(
-  pallete_list[["tilt_c"]], pallete_list[["tilt_nc"]],
-  pallete_list[["rot_c"]], pallete_list[["rot_nc"]],
-  pallete_list[["rot_15_c"]], pallete_list[["rot_15_nc"]]
-))
+p <- p + 
+  scale_colour_manual(values = pallete_list) + 
+  scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
 ```
 
 
-### Plots for ERROR
+### Plot ERROR SIZE
 Note: Blues = Acceleration Perturbations
 ```{r}
-ggplotly(plot_original_learning_curve(omnibus_path))
+# original experiments only
+data_per_group <- omnibus_df %>%
+  filter(exp_label == "original_exps") %>%
+  group_by(experiment, test_type, trial_num) %>%
+  summarise(
+    mean_deviation = mean(error_size),
+    ci_deviation = vector_confint(error_size),
+    .groups = "drop"
+  )
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = trial_num, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Throw Angle (°)"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# p <- p +
+#   scale_y_continuous(
+#     limits = c(-10, 35),
+#     breaks = c(0, 15, 30),
+#     labels = c(0, 15, 30)
+#   ) +
+#   scale_x_continuous(
+#     limits = c(0, 180),
+#     breaks = c(0, 60, 120, 180),
+#     labels = c(0, 60, 120, 180)
+#   )
+
+# set font size to 11
+p <- p +
+  theme(text = element_text(size = 11))
+
+# add confidence intervals and data points
+p <- p + geom_ribbon(
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation,
+    fill = experiment
+  ), colour = NA, alpha = 0.3
+  ) + geom_line()
+
+# set colour palette
+p <- p + 
+  scale_colour_manual(values = pallete_list) + 
+  scale_fill_manual(values = pallete_list)
+
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#   p,
+#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
+#   height = 4, width = 6
+#   )
+#   }
+
+ggplotly(p)
+
+# p
 ```
 
 visible vs non-visible tilt doesn't affect the 15-degree rotation condition. But affects all other conditions. So 15-degree rotation
 
+### Trial sets of interest only
 Note: Blues = Acceleration Perturbations
 ```{r}
-ggplotly(plot_original_rebound(omnibus_path))
+# filter out just the trials of interest
+data_per_group <- data_per_group %>%
+  filter(
+    test_type != "other"
+  ) 
+# add a dummy column with repeating sequence 
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>% 
+  mutate(dummy_x = rep(1:(nrow(data_per_group)/6), 
+                       length.out = nrow(data_per_group)))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Throw Angle (°)"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# add confidence intervals and data points
+for (unique_test_type in unique(data_per_group$test_type)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+    ) + geom_line(
+      data = to_plot_data
+    )
+}
+
+# set colour palette
+p <- p + 
+  scale_colour_manual(values = pallete_list) + 
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
 ```
 
 
 
 # Animated Surface Follow-up
 
-### Omnibus Plot for ANGLES
+### Plot ANGULAR DEVIATIONS (hand angles)
 ```{r}
 # isolate animate_surface exp
 data_per_group <- omnibus_df %>%
@@ -304,6 +426,14 @@ data_per_group <- omnibus_df %>%
   summarise(
     mean_deviation = mean(throw_deviation),
     ci_deviation = vector_confint(throw_deviation)
+  )
+
+# order the factors for assigning colour pallets
+data_per_group$prior_anim <- factor(
+  data_per_group$prior_anim,
+  levels = c(
+    "none", "half_anim", "full_anim"
+  )
   )
 
 # set up plot
@@ -369,6 +499,10 @@ for (unique_prior_anim in unique(data_per_group$prior_anim)) {
   }
 }
 
+# set colour palette
+p <- p + 
+  scale_colour_manual(values = pallete_list) + 
+  scale_fill_manual(values = pallete_list)
 
 # # save
 # if (save_plots) {
@@ -383,7 +517,7 @@ ggplotly(p)
 # p
 ```
 
-## Difference between half and full animation washout trials
+### Washout trials after half VS full animations
 ```{r}
 # first, isolate the data
 data <- omnibus_df %>%
@@ -420,7 +554,7 @@ p <- data_per_group %>%
   theme_classic() +
   theme(legend.position = "none") +
   labs(
-    x = "Trial Number",
+    x = "Trial Number in Block",
     y = "Throw Angle (°)"
   )
 
@@ -448,6 +582,12 @@ p <- p + geom_beeswarm(
       ),
     colour = NA, alpha = 0.3
   ) + geom_line()
+
+
+# set colour palette
+p <- p + 
+  scale_colour_manual(values = pallete_list) + 
+  scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
 ```

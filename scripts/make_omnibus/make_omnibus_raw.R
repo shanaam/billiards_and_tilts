@@ -143,9 +143,15 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       mutate(baseline_block = case_when( #label baseline blocks
         block_num %in% (6:8) ~ TRUE,
         TRUE ~ FALSE
+      )) %>% # recode experiment
+      mutate(experiment = recode(
+        experiment,
+        "tilt_uncued_rot" = "rot30_uncued",
+        "tilt_uncued_norot" = "accel_uncued",
+        "tilt_cued_rot" = "rot30_cued_tilt",
+        "tilt_cued_norot" = "accel_cued_tilt"
       ))
-    
-    
+
   } else if (trial_df$experiment[1] == "a_ball_roll_animate_surface") {
     ## ANIMATE SURFACE EXP ##
     ### remove and add things ###
@@ -195,12 +201,12 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
   return(trial_df)
 }
 
-#####  Test #####
-directory_index = 120
-
-ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
-# make a list of length length(ppt_list)
-trial_df_list <- vector("list", length(ppt_list))
+# #####  Test #####
+# directory_index = 120
+# 
+# ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
+# # make a list of length length(ppt_list)
+# trial_df_list <- vector("list", length(ppt_list))
 
 # for (i in 1:length(ppt_list)) {
 #   trial_df_list[[i]] <- make_one_ppt_file(i, ppt_list)

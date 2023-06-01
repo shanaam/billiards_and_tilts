@@ -14,21 +14,24 @@ library(ggnewscale)
 
 # note: R has no has tables, but environments can work like one
 # (they are hashed under the hood)
-pallete <- new.env()
-pallete$rot_c <- "#d40000"
-pallete$rot_nc <- "#f9982c"
-pallete$tilt_c <- "#07509b"
-pallete$tilt_nc <- "#5fb696"
-pallete$rot_15_c <- "#740000"
-pallete$rot_15_nc <- "#99982c"
+
+# convert the above into a list
+pallete_list <- c("rot30_cued_tilt" = "#d40000",
+                  "rot30_uncued" = "#f9982c",
+                  "accel_cued_tilt" = "#07509b",
+                  "accel_uncued" = "#5fb696",
+                  "rot15_cued_tilt" = "#740000",
+                  "rot15_uncued" = "#99982c",
+                  "none" = "#f9982c",
+                  "half_anim" = "#5fb696",
+                  "full_anim" = "#07509b",
+                  "wait" = "#99982c")
 
 omnibus_path <- "data/processed/omnibus/omnibus_raw.csv"
 with_path_omnibus <- "data/processed/omnibus/omnibus_throws_with_path.csv"
 
 #### HELPER FUNCTIONS
 load_main_experiments <- function(omnibus_path) {
-  original_exps <- c("rot15_cued_tilt", "rot15_uncued", "tilt_uncued_rot", 
-                     "tilt_uncued_norot", "tilt_cued_rot", "tilt_cued_norot")
   
   # load the data
   data <- read_delim(
@@ -51,7 +54,7 @@ load_main_experiments <- function(omnibus_path) {
                      anim_type = col_factor()),
                      show_col_types = FALSE
   ) %>%
-    filter(experiment %in% original_exps)
+    filter(exp_label == "original_exps")
 
   return(data)
 }
@@ -124,15 +127,9 @@ plot_original_learning_curve <- function(omnibus_path) {
     NULL
 
   # set colour palette
-  p <- p + scale_colour_manual(values = c(
-    pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc,
-    pallete$rot_15_c, pallete$rot_15_nc
-  )) + scale_fill_manual(values = c(
-    pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc,
-    pallete$rot_15_c, pallete$rot_15_nc
-  ))
+  p <- p + 
+    scale_colour_manual(values = pallete_list) + 
+    scale_fill_manual(values = pallete_list)
 
   # remove legend
   p <- p + theme(legend.position = "none")
@@ -198,15 +195,9 @@ plot_original_rebound <- function(omnibus_path) {
     NULL
 
   # set colour palette
-  p <- p + scale_colour_manual(values = c(
-    pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc,
-    pallete$rot_15_c, pallete$rot_15_nc
-  )) + scale_fill_manual(values = c(
-    pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc,
-    pallete$rot_15_c, pallete$rot_15_nc
-  ))
+  p <- p + 
+    scale_colour_manual(values = pallete_list) + 
+    scale_fill_manual(values = pallete_list)
 
   # remove legend
   p <- p + theme(legend.position = "none")
@@ -520,13 +511,9 @@ plot_rebound_15 <- function() {
     theme(text = element_text(size = 35))
 
   # set colour palette
-  p <- p + scale_colour_manual(values = c(
-    pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc
-  )) + scale_fill_manual(values = c(
-    pallete$tilt_c, pallete$tilt_nc,
-    pallete$rot_c, pallete$rot_nc
-  ))
+  p <- p + 
+    scale_colour_manual(values = pallete_list) + 
+    scale_fill_manual(values = pallete_list)
 
   # remove legend
   p <- p + theme(legend.position = "none")
