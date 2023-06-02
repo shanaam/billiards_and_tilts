@@ -74,7 +74,7 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
 ```
 
 # Visualizing data (univariate)
-
+Vectors representing the throw velocity (trace 0) and the velocity applied to the ball (trace 1). The y dimention of the throw is essentially ignored (in reality there is a slight tilt added to account for the tilt of the surface).
 ```{r}
 test_ppt <- 3
 
@@ -84,22 +84,26 @@ test_df <- omnibus_df %>% filter(ppid == test_ppt)
 trial <- 250
 trial_df <- filter(test_df, trial_num == trial)
 
-x <- trial_df$flick_velocity_x
+x <- trial_df$flick_velocity_x 
 y <- trial_df$flick_velocity_y
 z <- trial_df$flick_velocity_z
 
-x2 <- trial_df$flick_direction_x
-y2 <- trial_df$flick_direction_y
-z2 <- trial_df$flick_direction_z
+x2 <- trial_df$flick_direction_x * -1
+y2 <- trial_df$flick_direction_y * -1
+z2 <- trial_df$flick_direction_z * -1
 
 # plot both
-plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines") %>%
+p <- plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines") %>%
   add_trace(x = c(0, x2), y = c(0, y2), z = c(0, z2), type = "scatter3d", mode = "lines") %>%
   layout(scene = list(
-    xaxis = list(title = "x"),
-    yaxis = list(title = "y"),
-    zaxis = list(title = "z")
+    xaxis = list(title = "x", range = c(-2, 2)),
+    yaxis = list(title = "y", range = c(-1, 3)),
+    zaxis = list(title = "z", range = c(-1, 3))
   ))
+
+# Render the plot
+p
+```
 
 # note: this is a rotated trial
 ```
@@ -144,7 +148,7 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  # theme(legend.position = "none") +
   labs(
     x = "Trial Number",
     y = "Throw Angle (°)"
@@ -229,7 +233,7 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  # theme(legend.position = "none") +
   labs(
     x = "Trial Number",
     y = "Throw Angle (°)"
@@ -293,10 +297,10 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  # theme(legend.position = "none") +
   labs(
     x = "Trial Number",
-    y = "Throw Angle (°)"
+    y = "Absolute Target Error (cm)"
   )
 
 # add horizontal lines
@@ -381,10 +385,10 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  # theme(legend.position = "none") +
   labs(
     x = "Trial Number",
-    y = "Throw Angle (°)"
+    y = "Absolute Target Error (cm)"
   )
 
 # add horizontal lines
@@ -456,7 +460,7 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  # theme(legend.position = "none") +
   labs(
     x = "Trial Number",
     y = "Throw Angle (°)"
@@ -562,7 +566,7 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  # theme(legend.position = "none") +
   labs(
     x = "Trial Number in Block",
     y = "Throw Angle (°)"
