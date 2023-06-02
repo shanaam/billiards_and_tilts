@@ -11,34 +11,35 @@ output:
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
-rm(list = ls())      # clean environment
+rm(list = ls()) # clean environment
 
 source("../src/helper_funcs.R")
-source("../scripts/figure_funcs.R") 
+source("../scripts/figure_funcs.R")
 library(data.table)
 library(tidyverse)
 library(ggbeeswarm)
-library(ez) #for ANOVAs
+library(ez) # for ANOVAs
 library(effectsize) # for eta-squared
 library(plotly)
 
-options(dplyr.summarise.inform=F)
+options(dplyr.summarise.inform = F)
 
 # vars
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
 
 # convert the above into a list
-pallete_list <- c("rot30_cued_tilt" = "#d40000",
-             "rot30_uncued" = "#f9982c",
-             "accel_cued_tilt" = "#07509b",
-             "accel_uncued" = "#5fb696",
-             "rot15_cued_tilt" = "#740000",
-             "rot15_uncued" = "#99982c",
-             "none" = "#f9982c",
-             "half_anim" = "#5fb696",
-             "full_anim" = "#07509b",
-             "wait" = "#99982c")
-
+pallete_list <- c(
+  "rot30_cued_tilt" = "#d40000",
+  "rot30_uncued" = "#f9982c",
+  "accel_cued_tilt" = "#07509b",
+  "accel_uncued" = "#5fb696",
+  "rot15_cued_tilt" = "#770202",
+  "rot15_uncued" = "#a76315",
+  "none" = "#f9982c",
+  "half_anim" = "#5fb696",
+  "full_anim" = "#07509b",
+  "wait" = "#a76315"
+)
 ```
 
 
@@ -48,24 +49,27 @@ pallete_list <- c("rot30_cued_tilt" = "#d40000",
 
 
 ```{r}
-#load omnibus dataframe
-omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv", 
-                            delim = ",", 
-                            col_types = cols(.default = col_double(), 
-                                             type = col_factor(),
-                                             ppid = col_factor(),
-                                             exp_label = col_factor(),
-                                             experiment = col_factor(),
-                                             hand = col_factor(),
-                                             camera_tilt = col_factor(),
-                                             surface_tilt = col_factor(),
-                                             target = col_factor(),
-                                             test_type = col_factor(),
-                                             prior_anim = col_factor(),
-                                             baseline_block = col_factor(),
-                                             task_type = col_factor(),
-                                             surface = col_factor(),
-                                             anim_type = col_factor())) %>%
+# load omnibus dataframe
+omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
+  delim = ",",
+  col_types = cols(
+    .default = col_double(),
+    type = col_factor(),
+    ppid = col_factor(),
+    exp_label = col_factor(),
+    experiment = col_factor(),
+    hand = col_factor(),
+    camera_tilt = col_factor(),
+    surface_tilt = col_factor(),
+    target = col_factor(),
+    test_type = col_factor(),
+    prior_anim = col_factor(),
+    baseline_block = col_factor(),
+    task_type = col_factor(),
+    surface = col_factor(),
+    anim_type = col_factor()
+  )
+) %>%
   filter(block_num > 4) # filter out practice blocks
 ```
 
@@ -91,9 +95,11 @@ z2 <- trial_df$flick_direction_z
 # plot both
 plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines") %>%
   add_trace(x = c(0, x2), y = c(0, y2), z = c(0, z2), type = "scatter3d", mode = "lines") %>%
-  layout(scene = list(xaxis = list(title = "x"),
-                      yaxis = list(title = "y"),
-                      zaxis = list(title = "z")))
+  layout(scene = list(
+    xaxis = list(title = "x"),
+    yaxis = list(title = "y"),
+    zaxis = list(title = "z")
+  ))
 
 # note: this is a rotated trial
 ```
@@ -177,12 +183,13 @@ p <- p + geom_ribbon(
     ymin = mean_deviation - ci_deviation,
     ymax = mean_deviation + ci_deviation,
     fill = experiment
-  ), colour = NA, alpha = 0.3
-  ) + geom_line()
+  ),
+  colour = NA, alpha = 0.3
+) + geom_line()
 
 # set colour palette
-p <- p + 
-  scale_colour_manual(values = pallete_list) + 
+p <- p +
+  scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
 
@@ -206,12 +213,13 @@ Note: Blues = Acceleration Perturbations
 data_per_group <- data_per_group %>%
   filter(
     test_type != "other"
-  ) 
-# add a dummy column with repeating sequence 
+  )
+# add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
-data_per_group <- data_per_group %>% 
-  mutate(dummy_x = rep(1:(nrow(data_per_group)/6), 
-                       length.out = nrow(data_per_group)))
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / 6),
+    length.out = nrow(data_per_group)
+  ))
 
 # set up plot
 p <- data_per_group %>%
@@ -250,14 +258,14 @@ for (unique_test_type in unique(data_per_group$test_type)) {
       ymax = mean_deviation + ci_deviation,
       fill = experiment
     ), colour = NA, alpha = 0.3
-    ) + geom_line(
-      data = to_plot_data
-    )
+  ) + geom_line(
+    data = to_plot_data
+  )
 }
 
 # set colour palette
-p <- p + 
-  scale_colour_manual(values = pallete_list) + 
+p <- p +
+  scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
@@ -324,12 +332,13 @@ p <- p + geom_ribbon(
     ymin = mean_deviation - ci_deviation,
     ymax = mean_deviation + ci_deviation,
     fill = experiment
-  ), colour = NA, alpha = 0.3
-  ) + geom_line()
+  ),
+  colour = NA, alpha = 0.3
+) + geom_line()
 
 # set colour palette
-p <- p + 
-  scale_colour_manual(values = pallete_list) + 
+p <- p +
+  scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
 
@@ -356,12 +365,13 @@ Note: Blues = Acceleration Perturbations
 data_per_group <- data_per_group %>%
   filter(
     test_type != "other"
-  ) 
-# add a dummy column with repeating sequence 
+  )
+# add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
-data_per_group <- data_per_group %>% 
-  mutate(dummy_x = rep(1:(nrow(data_per_group)/6), 
-                       length.out = nrow(data_per_group)))
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / 6),
+    length.out = nrow(data_per_group)
+  ))
 
 # set up plot
 p <- data_per_group %>%
@@ -400,14 +410,14 @@ for (unique_test_type in unique(data_per_group$test_type)) {
       ymax = mean_deviation + ci_deviation,
       fill = experiment
     ), colour = NA, alpha = 0.3
-    ) + geom_line(
-      data = to_plot_data
-    )
+  ) + geom_line(
+    data = to_plot_data
+  )
 }
 
 # set colour palette
-p <- p + 
-  scale_colour_manual(values = pallete_list) + 
+p <- p +
+  scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
@@ -434,7 +444,7 @@ data_per_group$prior_anim <- factor(
   levels = c(
     "none", "half_anim", "full_anim"
   )
-  )
+)
 
 # set up plot
 p <- data_per_group %>%
@@ -492,16 +502,16 @@ for (unique_prior_anim in unique(data_per_group$prior_anim)) {
       data = block_data,
       aes(fill = prior_anim),
       colour = NA, alpha = 0.3
-      ) + geom_line(
+    ) + geom_line(
       data = block_data,
-      aes(colour = prior_anim))
-    
+      aes(colour = prior_anim)
+    )
   }
 }
 
 # set colour palette
-p <- p + 
-  scale_colour_manual(values = pallete_list) + 
+p <- p +
+  scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
 # # save
@@ -525,7 +535,7 @@ data <- omnibus_df %>%
     exp_label == "animate_surface",
     baseline_block == FALSE,
     test_type == "washout_anim"
-    )
+  )
 
 data_per_ppt <- data %>%
   group_by(ppid, prior_anim, trial_num_in_block) %>%
@@ -572,21 +582,23 @@ p <- p +
 # add data points
 p <- p + geom_beeswarm(
   data = data_per_ppt,
-  aes(y = ppt_mean_deviation, 
-      colour = prior_anim),
+  aes(
+    y = ppt_mean_deviation,
+    colour = prior_anim
+  ),
   size = 1, dodge.width = 0.5
-  ) + geom_ribbon(
-    aes(
-      ymin = mean_deviation - ci_deviation,
-      ymax = mean_deviation + ci_deviation
-      ),
-    colour = NA, alpha = 0.3
-  ) + geom_line()
+) + geom_ribbon(
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation
+  ),
+  colour = NA, alpha = 0.3
+) + geom_line()
 
 
 # set colour palette
-p <- p + 
-  scale_colour_manual(values = pallete_list) + 
+p <- p +
+  scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
