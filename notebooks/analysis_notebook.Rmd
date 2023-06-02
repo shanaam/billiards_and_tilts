@@ -104,23 +104,41 @@ p <- plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "
 # Render the plot
 p
 ```
+note: this is a rotated trial
 
-# note: this is a rotated trial
-```
-
-
-```{r}
-
-```
-
-
+### Distribution of errors
 ```{r}
 # plot distribution of error_size
-p <- ggplot(omnibus_df, aes(x = error_size)) +
-  geom_histogram(binwidth = .5) +
+p <- ggplot(omnibus_df, aes(x = error_size,
+                            fill = type)) +
+  geom_histogram(binwidth = .5, alpha = .6) +
   theme_minimal() +
   theme(text = element_text(size = 11)) +
+  scale_fill_manual(values=c("#f9982c", "#d40000")) +
   labs(x = "Error Size (cm)", y = "Count")
+
+p
+```
+
+### Distribution of throw angles
+```{r}
+# plot distribution of error_size
+p <- ggplot(omnibus_df, aes(x = throw_deviation,
+                            fill = type)) +
+  geom_histogram(binwidth = 1, alpha = .6) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  scale_fill_manual(values=c("#f9982c", "#d40000")) +
+  labs(
+    x = "Throw Angle (°)", y = "Count"
+  ) +  # dashed lines at 0, -15, -30
+  geom_vline(
+    xintercept = c(0, -15, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) + # ticks of 15 degrees
+  scale_x_continuous(
+    breaks = c(-30, 0, 30, -60, -90)
+  )
 
 p
 ```
