@@ -61,7 +61,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     ))
 
 
-  ### baseline correction ###
+  ### Baseline correction ###
   # make a baseline_df
   bl_df_summary <- omnibus_df %>%
     filter(baseline_block == TRUE) %>%
@@ -76,15 +76,41 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
 
   # non equi join omnibus_df and bl_df_summary
   omnibus_df <- omnibus_df[
-    bl_df_summary, 
+    bl_df_summary,
     on = .(ppid, task_type, hand, prior_anim),
     nomatch = 0
-    ]
+  ]
 
   # subtract the baseline from the raw_throw_deviation
   omnibus_df <- omnibus_df %>%
     mutate(
       throw_deviation = raw_throw_deviation - bl_deviation
+    )
+
+  ### Normalization ###
+  # make max_learning_df
+  max_learning_df_summary <- omnibus_df %>%
+    filter(test_type == "training_end") %>%
+    group_by(ppid) %>%
+    summarise(
+      max_learning = median(throw_deviation, na.rm = TRUE)
+    )
+
+  # convert to data.table
+  max_learning_df_summary <- as.data.table(max_learning_df_summary)
+  omnibus_df <- as.data.table(omnibus_df)
+
+  # non equi join omnibus_df and max_learning_df_summary
+  omnibus_df <- omnibus_df[
+    max_learning_df_summary,
+    on = .(ppid),
+    nomatch = 0
+  ]
+
+  # divide the throw_deviation by the max_learning
+  omnibus_df <- omnibus_df %>%
+    mutate(
+      norm_throw_deviation = throw_deviation / max_learning
     )
 
   # arrange by ppid and trial_num
@@ -119,16 +145,17 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 
   ## ORIGIAL EXPS ##
   if (trial_df$experiment[1] %in% original_exps) {
-    
     ### remove things ###
     trial_df <- trial_df %>%
       select(
         -starts_with("tracking_"), -starts_with("hand_"),
         -starts_with("pinball_path")
-      ) %>% 
+      ) %>%
       filter(block_num > 4) %>% # filter out practice blocks
-      mutate(anim_type = "none", # add anim_type and exp_label columns
-        exp_label = "original_exps") %>% # add test_type column
+      mutate(
+        anim_type = "none", # add anim_type and exp_label columns
+        exp_label = "original_exps"
+      ) %>% # add test_type column
       mutate(test_type = case_when(
         (trial_num_in_block %in% (1:8) & block_num == 11) ~ "training_init",
         (trial_num_in_block %in% (73:80) & block_num == 11) ~ "training_end",
@@ -138,9 +165,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         (trial_num_in_block %in% (33:40) & block_num == 14) ~ "transfer_end",
         TRUE ~ "other"
       )) %>%
-      mutate(prior_anim = "none"
-      ) %>%
-      mutate(baseline_block = case_when( #label baseline blocks
+      mutate(prior_anim = "none") %>%
+      mutate(baseline_block = case_when( # label baseline blocks
         block_num %in% (6:8) ~ TRUE,
         TRUE ~ FALSE
       )) %>% # recode experiment
@@ -151,13 +177,14 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         "tilt_cued_rot" = "rot30_cued_tilt",
         "tilt_cued_norot" = "accel_cued_tilt"
       ))
-
   } else if (trial_df$experiment[1] == "a_ball_roll_animate_surface") {
     ## ANIMATE SURFACE EXP ##
     ### remove and add things ###
     trial_df <- trial_df %>%
-      select(-starts_with("hand_pos_flick"), 
-      -starts_with("ball_pos_step1")) %>% # remove columns
+      select(
+        -starts_with("hand_pos_flick"),
+        -starts_with("ball_pos_step1")
+      ) %>% # remove columns
       filter(block_num > 4) %>% # filter out practice blocks
       mutate(exp_label = "animate_surface") %>% # add exp_label column
       mutate(test_type = case_when( # add test_type column
@@ -174,18 +201,18 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         (block_num == 48) ~ "half_anim",
         TRUE ~ "none"
       )) %>%
-      mutate(baseline_block = case_when( #label baseline blocks
+      mutate(baseline_block = case_when( # label baseline blocks
         block_num %in% (5:11) ~ TRUE,
         TRUE ~ FALSE
       ))
-  }
-  
-  else if (trial_df$experiment[1] == "a_curved_cued_tilt") {
+  } else if (trial_df$experiment[1] == "a_curved_cued_tilt") {
     ## CURVED PATH EXP ##
     ### remove and add things ###
     trial_df <- trial_df %>%
-      select(-starts_with("hand_pos_flick"), 
-             -starts_with("ball_pos_step1")) %>% # remove columns
+      select(
+        -starts_with("hand_pos_flick"),
+        -starts_with("ball_pos_step1")
+      ) %>% # remove columns
       filter(block_num > 4) %>% # filter out practice blocks
       mutate(exp_label = "curved_path", anim_type = "none") %>% # add exp_label and anim_type column
       mutate(test_type = case_when( # add test_type column
@@ -197,9 +224,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         (trial_num_in_block %in% (33:40) & block_num == 14) ~ "transfer_end",
         TRUE ~ "other"
       )) %>%
-      mutate(prior_anim = "none"
-      ) %>%
-      mutate(baseline_block = case_when( #label baseline blocks
+      mutate(prior_anim = "none") %>%
+      mutate(baseline_block = case_when( # label baseline blocks
         block_num %in% (6:8) ~ TRUE,
         TRUE ~ FALSE
       )) %>%
@@ -230,7 +256,7 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 
 # #####  Test #####
 # directory_index = 120
-# 
+#
 # ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
 # # make a list of length length(ppt_list)
 # trial_df_list <- vector("list", length(ppt_list))
@@ -244,5 +270,3 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 ##### Do #####
 plan(multisession)
 make_omnibus_raw_file(to_load_dir_path)
-
-

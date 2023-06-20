@@ -295,7 +295,153 @@ p <- p +
 
 ggplotly(p)
 ```
+### Plot NORMALIZED ANGULAR DEVIATIONS (hand angles)
+Note: Blues = Acceleration Perturbations
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(exp_label == "original_exps" | exp_label == "curved_path") %>%
+  group_by(experiment, test_type, trial_num) %>%
+  summarise(
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
+    .groups = "drop"
+  )
 
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = trial_num, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  # theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Normalized Throw Angle"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, 1, 2), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# p <- p +
+#   scale_y_continuous(
+#     limits = c(-10, 35),
+#     breaks = c(0, 15, 30),
+#     labels = c(0, 15, 30)
+#   ) +
+#   scale_x_continuous(
+#     limits = c(0, 180),
+#     breaks = c(0, 60, 120, 180),
+#     labels = c(0, 60, 120, 180)
+#   )
+
+# set font size to 11
+p <- p +
+  theme(text = element_text(size = 11))
+
+# add confidence intervals and data points
+p <- p + geom_ribbon(
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation,
+    fill = experiment
+  ),
+  colour = NA, alpha = 0.3
+) + geom_line()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#   p,
+#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
+#   height = 4, width = 6
+#   )
+#   }
+
+ggplotly(p)
+
+# p
+```
+### Trial sets of interest only
+Note: Blues = Acceleration Perturbations
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# filter out just the trials of interest
+data_per_group <- data_per_group %>%
+  filter(
+    test_type != "other"
+  )
+# add a dummy column with repeating sequence
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / NUM_EXPS),
+    length.out = nrow(data_per_group)
+  ))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  # theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Normalized Throw Angle"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, 1, 2), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# add confidence intervals and data points
+for (unique_test_type in unique(data_per_group$test_type)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+```
 
 ### Plot ERROR SIZE
 Note: Blues = Acceleration Perturbations
@@ -327,11 +473,11 @@ p <- data_per_group %>%
 # add horizontal lines
 p <- p +
   geom_hline(
-    yintercept = c(0, -30), linewidth = 0.4,
+    yintercept = c(0, 40), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
   ) +
   geom_hline(
-    yintercept = c(-15), linewidth = 0.4,
+    yintercept = c(20), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
   )
 
@@ -415,11 +561,11 @@ p <- data_per_group %>%
 # add horizontal lines
 p <- p +
   geom_hline(
-    yintercept = c(0, -30), linewidth = 0.4,
+    yintercept = c(0, 40), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
   ) +
   geom_hline(
-    yintercept = c(-15), linewidth = 0.4,
+    yintercept = c(20), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
   )
 
