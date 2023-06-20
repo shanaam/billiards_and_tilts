@@ -33,6 +33,7 @@ pallete_list <- c(
   "rot30_uncued" = "#f9982c",
   "accel_cued_tilt" = "#07509b",
   "accel_uncued" = "#5fb696",
+  "curved_cued_tilt" = "#2b5747",
   "rot15_cued_tilt" = "#770202",
   "rot15_uncued" = "#a76315",
   "none" = "#f9982c",
@@ -40,6 +41,8 @@ pallete_list <- c(
   "full_anim" = "#07509b",
   "wait" = "#a76315"
 )
+
+NUM_EXPS <- 7
 ```
 
 
@@ -150,7 +153,7 @@ Note: Blues = Acceleration Perturbations
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # rest of the exps
 data_per_group <- omnibus_df %>%
-  filter(exp_label == "original_exps") %>%
+  filter(exp_label == "original_exps" | exp_label == "curved_path") %>%
   group_by(experiment, test_type, trial_num) %>%
   summarise(
     mean_deviation = mean(throw_deviation),
@@ -239,7 +242,7 @@ data_per_group <- data_per_group %>%
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
 data_per_group <- data_per_group %>%
-  mutate(dummy_x = rep(1:(nrow(data_per_group) / 6),
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / NUM_EXPS),
     length.out = nrow(data_per_group)
   ))
 
@@ -299,7 +302,7 @@ Note: Blues = Acceleration Perturbations
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # original experiments only
 data_per_group <- omnibus_df %>%
-  filter(exp_label == "original_exps") %>%
+  filter(exp_label == "original_exps" | exp_label == "curved_path") %>%
   group_by(experiment, test_type, trial_num) %>%
   summarise(
     mean_deviation = mean(error_size),
@@ -391,7 +394,7 @@ data_per_group <- data_per_group %>%
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
 data_per_group <- data_per_group %>%
-  mutate(dummy_x = rep(1:(nrow(data_per_group) / 6),
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / NUM_EXPS),
     length.out = nrow(data_per_group)
   ))
 
