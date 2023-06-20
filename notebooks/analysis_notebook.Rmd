@@ -42,6 +42,12 @@ pallete_list <- c(
   "wait" = "#a76315"
 )
 
+exp_fit_mode_per_test_type <- c(
+  "washout_init" = "washout",
+  "training_init" = "learning",
+  "transfer_init" = "learning"
+)
+
 NUM_EXPS <- 7
 ```
 
@@ -73,7 +79,28 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     anim_type = col_factor()
   )
 ) %>%
-  filter(block_num > 4) # filter out practice blocks
+  filter(block_num > 4) %>%
+  filter(ppid %in% c(1, 2, 3))# filter out practice blocks
+
+# Optionally make learning rate summaries
+# do the following if learning_rate_df.csv doesn't exist in ../data/processed
+# This takes a loong time
+if (!file.exists("../data/processed/learning_rate_df.csv")) {
+  # filter for just test_types that have "init" as a substring
+  block_init_learning_rates <- omnibus_df %>%
+    filter(str_detect(test_type, "init")) %>%
+    group_by(ppid, experiment, test_type) %>%
+    summarise(
+      learning_rate = 
+          exponentialFit(norm_throw_deviation, mode = test_type[1])[1],
+      asymptote =
+          exponentialFit(norm_throw_deviation, mode = test_type[1])[2]
+    )
+
+  # write_csv(learning_rate_df, "../data/processed/learning_rate_df.csv")
+} else {
+  print("learning_rate_df.csv exists, loading from file")
+}
 ```
 
 # Visualizing data (univariate)
@@ -87,7 +114,7 @@ test_df <- omnibus_df %>% filter(ppid == test_ppt)
 trial <- 250
 trial_df <- filter(test_df, trial_num == trial)
 
-x <- trial_df$flick_velocity_x 
+x <- trial_df$flick_velocity_x
 y <- trial_df$flick_velocity_y
 z <- trial_df$flick_velocity_z
 
@@ -112,12 +139,14 @@ note: this is a rotated trial
 ### Distribution of errors
 ```{r}
 # plot distribution of error_size
-p <- ggplot(omnibus_df, aes(x = error_size,
-                            fill = type)) +
+p <- ggplot(omnibus_df, aes(
+  x = error_size,
+  fill = type
+)) +
   geom_histogram(binwidth = .5, alpha = .6) +
   theme_minimal() +
   theme(text = element_text(size = 11)) +
-  scale_fill_manual(values=c("#f9982c", "#d40000")) +
+  scale_fill_manual(values = c("#f9982c", "#d40000")) +
   labs(x = "Error Size (cm)", y = "Count")
 
 p
@@ -126,15 +155,17 @@ p
 ### Distribution of throw angles
 ```{r}
 # plot distribution of error_size
-p <- ggplot(omnibus_df, aes(x = throw_deviation,
-                            fill = type)) +
+p <- ggplot(omnibus_df, aes(
+  x = throw_deviation,
+  fill = type
+)) +
   geom_histogram(binwidth = 1, alpha = .6) +
   theme_minimal() +
   theme(text = element_text(size = 11)) +
-  scale_fill_manual(values=c("#f9982c", "#d40000")) +
+  scale_fill_manual(values = c("#f9982c", "#d40000")) +
   labs(
     x = "Throw Angle (°)", y = "Count"
-  ) +  # dashed lines at 0, -15, -30
+  ) + # dashed lines at 0, -15, -30
   geom_vline(
     xintercept = c(0, -15, -30), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
