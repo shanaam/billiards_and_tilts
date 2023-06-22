@@ -182,7 +182,7 @@ exponentialModel <- function(par, timepoints, mode, setN0=NULL) {
 #' @examples
 #' # write example?
 #' @export
-exponentialMSE <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode='learning', setN0=NULL) {
+exponentialMSE <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode='training_init', setN0=NULL) {
   
   MSE <- mean((exponentialModel(par, timepoints, mode=mode, setN0=setN0)$output - signal)^2, na.rm=TRUE)
   
@@ -217,7 +217,7 @@ exponentialMSE <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode
 #' # write example!
 #' @import optimx
 #' @export
-exponentialFit <- function(signal, timepoints=length(signal), mode='learning', gridpoints=11, gridfits=10, setN0=NULL) {
+exponentialFit <- function(signal, timepoints=length(signal), mode='training_init', gridpoints=11, gridfits=10, setN0=NULL) {
   
   # set the search grid:
   parvals <- seq(1/gridpoints/2,1-(1/gridpoints/2),1/gridpoints)
@@ -261,10 +261,113 @@ exponentialFit <- function(signal, timepoints=length(signal), mode='learning', g
   } else {
     winpar <- c( 'lambda' = unlist(win[1]), 
                  'N0'     = setN0)
-    names(winpar) <- c('lambda', 'N0')
   }
+  
+  names(winpar) <- c('exp_fit_lambda', 'exp_fit_N0')
+  winpar <- as_tibble_row(winpar)
   
   # return the best parameters:
   return(winpar)
   
 }
+
+
+
+
+exponentialModel2 <- function(par, timepoints, mode, setN0=NULL) {
+  
+  if (length(timepoints) == 1) {
+    timepoints <- c(0:(timepoints-1))
+  }
+  
+  if (is.numeric(setN0)) {
+    par['N0'] = setN0
+  }
+  
+  if (mode == 'training_init' | mode == 'transfer_init') {
+    output = (par['N0'] - ( par['N0'] * (1-par['lambda'])^timepoints)) +  par['displace']
+  }
+  if (mode == 'washout_init') {
+    output = (par['N0'] * (par['lambda'])^timepoints) + par['displace']
+  }
+  
+  return(data.frame(trial=timepoints,
+                    output=output))
+  
+}
+
+exponentialMSE2 <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode, setN0=NULL) {
+  
+  MSE <- mean((exponentialModel2(par, timepoints, mode=mode, setN0=setN0)$output - signal)^2, na.rm=TRUE)
+  
+  return( MSE )
+  
+}
+
+exponentialFit2 <- function(signal, timepoints=length(signal), mode, gridpoints=11, gridfits=10, setN0=NULL) {
+  
+  # set the search grid:
+  parvals <- seq(1/gridpoints/2,1-(1/gridpoints/2),1/gridpoints)
+  
+  asymptoteRange <- c(-1,2)*max(abs(signal), na.rm=TRUE)
+  
+  # define the search grid:
+  if (is.numeric(setN0)) {
+    searchgrid <- expand.grid('lambda' = parvals)
+    lo <- c(0)
+    hi <- c(1)
+  }
+  if (is.null(setN0)) {
+    searchgrid <- expand.grid('lambda' = parvals,
+                              'N0'     = parvals * diff(asymptoteRange) + asymptoteRange[1],
+                              'displace' = parvals * diff(asymptoteRange) + asymptoteRange[1])
+    lo <- c(0,asymptoteRange[1],asymptoteRange[1])
+    hi <- c(1,asymptoteRange[2],asymptoteRange[2])
+  }
+  # evaluate starting positions:
+  MSE <- apply(searchgrid, FUN=exponentialMSE2, MARGIN=c(1), signal=signal, timepoints=timepoints, mode=mode, setN0=setN0)
+  
+  # run optimx on the best starting positions:
+  allfits <- do.call("rbind",
+                     apply( data.frame(searchgrid[order(MSE)[1:gridfits],]),
+                            MARGIN=c(1),
+                            FUN=optimx::optimx,
+                            fn=exponentialMSE2,
+                            method     = 'L-BFGS-B',
+                            lower      = lo,
+                            upper      = hi,
+                            timepoints = timepoints,
+                            signal     = signal,
+                            mode       = mode,
+                            setN0      = setN0 ) )
+  
+  # pick the best fit:
+  win <- allfits[order(allfits$value)[1],]
+  
+  if (is.null(setN0)) {
+    winpar <- unlist(win[1:3])
+    # winpar[2] <- winpar[2] + winpar[3]
+    
+  } else {
+    winpar <- c( 'lambda' = unlist(win[1]), 
+                 'N0'     = setN0,
+                 'displace' = unlist(win[3]))
+  }
+  
+  names(winpar) <- c('exp_fit_lambda', 'exp_fit_N0', 'exp_fit_displace')
+  winpar <- as_tibble_row(winpar)
+  
+  # return the best parameters:
+  return(winpar)
+  
+}
+
+### TEST ###
+# signal <- c(20, 10, 5, 2.5, 1.25, 1, 1, 1, 1, 1, 1, 1)
+# signal <- c(1.589, 0.3014, -0.038, 0.324, 0.002, -0.002, 0.25, 0.03, 0.12, 0.08, -0.18, 0.1) # washout ppid 62
+
+# signal <- c(0.757, 0.026, 0.122, 0.353, -.08, 0.05, 0.283, 0.223, 0.106, 0.027, 0.014, 0.299, 0.572, -0.204, 0, 0.208) # washout ppid 2
+
+# for (timepoint in c(0:(length(signal)-1))){
+#   print((1.5140000 * 0.3112656^timepoint) + 0.1294852)
+# }

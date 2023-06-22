@@ -157,11 +157,11 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         exp_label = "original_exps"
       ) %>% # add test_type column
       mutate(test_type = case_when(
-        (trial_num_in_block %in% (1:8) & block_num == 11) ~ "training_init",
+        (trial_num_in_block %in% (1:16) & block_num == 11) ~ "training_init",
         (trial_num_in_block %in% (73:80) & block_num == 11) ~ "training_end",
-        (trial_num_in_block %in% (1:8) & block_num == 12) ~ "washout_init",
+        (trial_num_in_block %in% (1:16) & block_num == 12) ~ "washout_init",
         (trial_num_in_block %in% (33:40) & block_num == 12) ~ "washout_end",
-        (trial_num_in_block %in% (1:8) & block_num == 14) ~ "transfer_init",
+        (trial_num_in_block %in% (1:16) & block_num == 14) ~ "transfer_init",
         (trial_num_in_block %in% (33:40) & block_num == 14) ~ "transfer_end",
         TRUE ~ "other"
       )) %>%
@@ -188,7 +188,7 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       filter(block_num > 4) %>% # filter out practice blocks
       mutate(exp_label = "animate_surface") %>% # add exp_label column
       mutate(test_type = case_when( # add test_type column
-        (trial_num_in_block %in% (1:8) & block_num == 14) ~ "training_init",
+        (trial_num_in_block %in% (1:16) & block_num == 14) ~ "training_init",
         (trial_num_in_block %in% (73:80) & block_num == 14) ~ "training_end",
         (block_num %in% c(8, 16, 24, 32, 40)) ~ "washout_anim",
         (block_num %in% c(11, 20, 28, 36, 44)) ~ "washout_anim",
@@ -216,11 +216,11 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       filter(block_num > 4) %>% # filter out practice blocks
       mutate(exp_label = "curved_path", anim_type = "none") %>% # add exp_label and anim_type column
       mutate(test_type = case_when( # add test_type column
-        (trial_num_in_block %in% (1:8) & block_num == 11) ~ "training_init",
+        (trial_num_in_block %in% (1:16) & block_num == 11) ~ "training_init",
         (trial_num_in_block %in% (73:80) & block_num == 11) ~ "training_end",
-        (trial_num_in_block %in% (1:8) & block_num == 12) ~ "washout_init",
+        (trial_num_in_block %in% (1:16) & block_num == 12) ~ "washout_init",
         (trial_num_in_block %in% (33:40) & block_num == 12) ~ "washout_end",
-        (trial_num_in_block %in% (1:8) & block_num == 14) ~ "transfer_init",
+        (trial_num_in_block %in% (1:16) & block_num == 14) ~ "transfer_init",
         (trial_num_in_block %in% (33:40) & block_num == 14) ~ "transfer_end",
         TRUE ~ "other"
       )) %>%

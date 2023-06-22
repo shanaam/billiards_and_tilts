@@ -22,6 +22,9 @@ library(ez) # for ANOVAs
 library(effectsize) # for eta-squared
 library(plotly)
 
+library(furrr)
+plan(multisession)
+
 options(dplyr.summarise.inform = F)
 
 # vars
@@ -40,12 +43,6 @@ pallete_list <- c(
   "half_anim" = "#5fb696",
   "full_anim" = "#07509b",
   "wait" = "#a76315"
-)
-
-exp_fit_mode_per_test_type <- c(
-  "washout_init" = "washout",
-  "training_init" = "learning",
-  "transfer_init" = "learning"
 )
 
 NUM_EXPS <- 7
@@ -78,28 +75,44 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     surface = col_factor(),
     anim_type = col_factor()
   )
-) %>%
-  filter(block_num > 4) %>%
-  filter(ppid %in% c(1, 2, 3))# filter out practice blocks
+) %>% # filter out practice blocks
+  filter(block_num > 4)
 
 # Optionally make learning rate summaries
 # do the following if learning_rate_df.csv doesn't exist in ../data/processed
 # This takes a loong time
 if (!file.exists("../data/processed/learning_rate_df.csv")) {
-  # filter for just test_types that have "init" as a substring
-  block_init_learning_rates <- omnibus_df %>%
-    filter(str_detect(test_type, "init")) %>%
-    group_by(ppid, experiment, test_type) %>%
+  print(Sys.time())
+  apply_exponentialFit <- function(df) {
+  df %>%
     summarise(
-      learning_rate = 
-          exponentialFit(norm_throw_deviation, mode = test_type[1])[1],
-      asymptote =
-          exponentialFit(norm_throw_deviation, mode = test_type[1])[2]
+      ppid = first(ppid),
+      experiment = first(experiment),
+      test_type = first(test_type),
+      exponentialFit2 = exponentialFit(norm_throw_deviation, mode = test_type[1])
     )
+  }
+  
+  block_init_learning_rates <- omnibus_df %>%
+  filter(str_detect(test_type, "init")) %>%
+  group_by(ppid, experiment, test_type) %>%
+  group_split() %>%
+  future_map(apply_exponentialFit) %>%
+  bind_rows() %>%
+  unnest(cols = c('exponentialFit2'))
+  
+  print("done")
+  print(Sys.time())
 
-  # write_csv(learning_rate_df, "../data/processed/learning_rate_df.csv")
+  write_csv(block_init_learning_rates, "../data/processed/learning_rate_df.csv")
 } else {
   print("learning_rate_df.csv exists, loading from file")
+  block_init_learning_rates <- read_csv("../data/processed/learning_rate_df.csv",
+                                        col_types = cols(
+                                          .default = col_double(), 
+                                          experiment = col_factor(),
+                                          test_type = col_factor()
+                                          ))
 }
 ```
 
@@ -472,6 +485,224 @@ p <- p +
   scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
+```
+
+## Learning Rates and Asymptotes
+### Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_ppt <- block_init_learning_rates %>%
+  filter(experiment != "a_ball_roll_animate_surface")
+
+data_group <- data_ppt %>%
+  group_by(experiment, test_type) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    # mean_low = mean(exp_fit_displace),
+    # ci_low = vector_confint(exp_fit_displace),
+    .groups = "drop"
+  )
+
+p <- data_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Learning Rate"
+  ) +
+  facet_wrap(~test_type)
+
+# remove all x axis labels
+p <- p + theme(axis.text.x = element_blank())
+
+# for the colour legend, only show the first 7 Note this doesn't work for the plotly plot
+p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+
+# add data points
+p <- p +
+  geom_beeswarm(
+    data = data_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+# p
+```
+
+### High Points (Asymptotes or Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "High Point"
+  ) +
+  facet_wrap(~test_type)
+
+# remove all x axis labels
+p <- p + theme(axis.text.x = element_blank())
+
+# for the colour legend, only show the first 7 Note this doesn't work for the plotly plot
+p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+
+# add data points
+p <- p +
+  geom_beeswarm(
+    data = data_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+# p
+```
+
+### Low Points (Asymptotes or Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# p <- data_group %>%
+#   ggplot(
+#     aes(x = experiment, y = mean_low, colour = experiment)
+#   ) +
+#   theme_classic() +
+#   labs(
+#     x = NULL,
+#     y = "Low Point"
+#   ) +
+#   facet_wrap(~test_type)
+# 
+# # remove all x axis labels
+# p <- p + theme(axis.text.x = element_blank())
+# 
+# # for the colour legend, only show the first 7 Note this doesn't work for the plotly plot
+# p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+# 
+# # add data points
+# p <- p +
+#   geom_beeswarm(
+#     data = data_ppt,
+#     aes(
+#       y = exp_fit_displace
+#     ),
+#     alpha = 0.1,
+#     size = 1
+#   ) +
+#   geom_linerange(aes(
+#     ymin = mean_low - ci_low,
+#     ymax = mean_low + ci_low
+#   ), alpha = 0.5, lwd = 2) +
+#   geom_point()
+# 
+# # set colour palette
+# p <- p +
+#   scale_colour_manual(values = pallete_list) +
+#   scale_fill_manual(values = pallete_list)
+# 
+# ggplotly(p)
+# # p
+```
+
+For washout: The CUED accel + curved have a lower starting point (therefore -- cue works). VMR group has slightly lower.
+When comparing everything with a high starting point, the  ACCEL group has a much higher learning rate. 
+
+When transferring, no difference in learning rates.
+```{r}
+### TESTING
+# rest of the exps
+data_ <- omnibus_df %>%
+  filter(experiment == "accel_uncued", test_type == "washout_init")
+  
+# set up plot
+p <- data_ %>%
+  ggplot(
+    aes(
+      x = trial_num, y = norm_throw_deviation, colour = ppid
+    )
+  ) +
+  theme_classic() +
+  # theme(legend.position = "none") +
+  labs(
+    x = "Trial Number",
+    y = "Normalized Throw Angle"
+  )
+
+# add horizontal lines
+p <- p +
+  geom_hline(
+    yintercept = c(0, 1, 2), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  )
+
+# p <- p +
+#   scale_y_continuous(
+#     limits = c(-10, 35),
+#     breaks = c(0, 15, 30),
+#     labels = c(0, 15, 30)
+#   ) +
+#   scale_x_continuous(
+#     limits = c(0, 180),
+#     breaks = c(0, 60, 120, 180),
+#     labels = c(0, 60, 120, 180)
+#   )
+
+# set font size to 11
+p <- p +
+  theme(text = element_text(size = 11))
+
+# add confidence intervals and data points
+p <- p + geom_line()
+
+
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#   p,
+#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
+#   height = 4, width = 6
+#   )
+#   }
+
+ggplotly(p)
+
+# p
 ```
 
 ### Plot ERROR SIZE
