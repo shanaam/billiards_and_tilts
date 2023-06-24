@@ -153,7 +153,7 @@ exponentialModel <- function(par, timepoints, mode, setN0=NULL) {
     output = par['N0'] - ( par['N0'] * (1-par['lambda'])^timepoints )
   }
   if (mode == 'washout_init') {
-    output = par['N0'] * (par['lambda'])^timepoints
+    output = par['N0'] * (1-par['lambda'])^timepoints
   }
   
   return(data.frame(trial=timepoints,
@@ -288,7 +288,7 @@ exponentialModel2 <- function(par, timepoints, mode, setN0=NULL) {
     output = (par['N0'] - ( par['N0'] * (1-par['lambda'])^timepoints)) +  par['displace']
   }
   if (mode == 'washout_init') {
-    output = (par['N0'] * (par['lambda'])^timepoints) + par['displace']
+    output = (par['N0'] * (1 - par['lambda'])^timepoints) + par['displace'] # check the original exponentialModel
   }
   
   return(data.frame(trial=timepoints,
@@ -362,12 +362,12 @@ exponentialFit2 <- function(signal, timepoints=length(signal), mode, gridpoints=
   
 }
 
-### TEST ###
+# ### TEST ###
 # signal <- c(20, 10, 5, 2.5, 1.25, 1, 1, 1, 1, 1, 1, 1)
-# signal <- c(1.589, 0.3014, -0.038, 0.324, 0.002, -0.002, 0.25, 0.03, 0.12, 0.08, -0.18, 0.1) # washout ppid 62
-
-# signal <- c(0.757, 0.026, 0.122, 0.353, -.08, 0.05, 0.283, 0.223, 0.106, 0.027, 0.014, 0.299, 0.572, -0.204, 0, 0.208) # washout ppid 2
-
+# # signal <- c(1.589, 0.3014, -0.038, 0.324, 0.002, -0.002, 0.25, 0.03, 0.12, 0.08, -0.18, 0.1) # washout ppid 62
+# 
+# # signal <- c(0.757, 0.026, 0.122, 0.353, -.08, 0.05, 0.283, 0.223, 0.106, 0.027, 0.014, 0.299, 0.572, -0.204, 0, 0.208) # washout ppid 2
+# 
 # for (timepoint in c(0:(length(signal)-1))){
-#   print((1.5140000 * 0.3112656^timepoint) + 0.1294852)
+#   print((0.9437 * 0.7728^timepoint) + 0)
 # }
