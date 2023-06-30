@@ -91,16 +91,16 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
         test_type = first(test_type),
         exponentialFit = exponentialFit2(norm_throw_deviation, mode = test_type[1])
       )
-    }
-  
+  }
+
   block_init_learning_rates <- omnibus_df %>%
     filter(str_detect(test_type, "init")) %>%
     group_by(ppid, experiment, test_type) %>%
     group_split() %>%
     future_map(apply_exponentialFit) %>%
     bind_rows() %>%
-    unnest(cols = c('exponentialFit'))
-  
+    unnest(cols = c("exponentialFit"))
+
   print("done")
   print(Sys.time())
 
@@ -108,11 +108,12 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
 } else {
   print("learning_rate_df.csv exists, loading from file")
   block_init_learning_rates <- read_csv("../data/processed/learning_rate_df.csv",
-                                        col_types = cols(
-                                          .default = col_double(), 
-                                          experiment = col_factor(),
-                                          test_type = col_factor()
-                                          ))
+    col_types = cols(
+      .default = col_double(),
+      experiment = col_factor(),
+      test_type = col_factor()
+    )
+  )
 }
 ```
 
@@ -141,7 +142,8 @@ p <- plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "
   layout(scene = list(
     xaxis = list(title = "x", range = c(-2, 2)),
     yaxis = list(title = "y", range = c(-1, 3)),
-    zaxis = list(title = "z", range = c(-1, 3))
+    zaxis = list(title = "z", range = c(-1, 3)),
+    aspectmode = "cube" # equal aspect ratios
   ))
 
 # Render the plot
@@ -640,7 +642,7 @@ When transferring, no difference in learning rates.
 
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # Compare learning rates and high points
-p <- data_ppt %>% 
+p <- data_ppt %>%
   ggplot(
     aes(x = exp_fit_lambda, y = exp_fit_N0, colour = experiment)
   ) +
@@ -660,27 +662,37 @@ ggplotly(p)
 ### Correlations within the 3 variables above
 
 ```{r, fig.width=10, fig.height=6, out.width="100%", warning=FALSE}
-
 # 3d plot of learning rates, high points, and low points
 # filter out just the washout trials for now
 data_ppt <- block_init_learning_rates %>%
   filter(test_type == "washout_init")
 
-p <- plot_ly(type = 'scatter3d', mode = 'markers')
+p <- plot_ly(type = "scatter3d", mode = "markers")
 
 for (experiment_ in unique(data_ppt$experiment)) {
   # get the data for this block
   to_plot_data <- filter(data_ppt, experiment == experiment_)
-  
+
   p <- p %>%
     add_trace(
-      x = to_plot_data$exp_fit_lambda, 
-      y = to_plot_data$exp_fit_N0, 
-      z = to_plot_data$exp_fit_displace, 
+      x = to_plot_data$exp_fit_lambda,
+      y = to_plot_data$exp_fit_N0,
+      z = to_plot_data$exp_fit_displace,
       color = I(pallete_list[experiment_]),
       name = experiment_
     )
 }
+
+# Axes names
+p <- p %>% layout(
+  scene =
+    (list(
+      xaxis = list(title = "Learning Rate"),
+      yaxis = list(title = "High Point"),
+      zaxis = list(title = "Low Point"),
+      aspectmode = "cube" # equal aspect ratios
+    ))
+)
 
 p
 ```
@@ -694,7 +706,7 @@ p
 # rest of the exps
 data_ <- omnibus_df %>%
   filter(experiment == "accel_uncued", test_type == "washout_init")
-  
+
 # set up plot
 p <- data_ %>%
   ggplot(
@@ -1078,6 +1090,45 @@ p <- p + geom_beeswarm(
   colour = NA, alpha = 0.3
 ) + geom_line()
 
+# add washout_init from the 30-degree rotation condition
+data_per_ppt_30 <- omnibus_df %>%
+  filter(
+    experiment %in% c("rot30_cued_tilt", "rot30_uncued"),
+    test_type == "washout_init"
+  ) %>% # rename the experiment column to prior_anim
+  mutate(prior_anim = experiment)
+
+data_per_group_30 <- data_per_ppt_30 %>%
+  group_by(prior_anim, trial_num_in_block) %>%
+  summarise(
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation),
+    n = n()
+  )
+
+
+# add data points
+p <- p + geom_beeswarm(
+  data = data_per_ppt_30,
+  aes(
+    y = throw_deviation,
+    colour = prior_anim
+  ),
+  size = 1, dodge.width = 0.5
+) + geom_ribbon(
+  data = data_per_group_30,
+  aes(
+    ymin = mean_deviation - ci_deviation,
+    ymax = mean_deviation + ci_deviation,
+    fill = prior_anim
+  ),
+  colour = NA, alpha = 0.3
+) + geom_line(
+  data = data_per_group_30,
+  aes(
+    colour = prior_anim
+  )
+)
 
 # set colour palette
 p <- p +
