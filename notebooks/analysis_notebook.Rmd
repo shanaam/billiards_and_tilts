@@ -10,6 +10,7 @@ output:
     code_folding: hide
 ---
 
+
 ```{r setup, include=FALSE, warning=FALSE}
 rm(list = ls()) # clean environment
 
@@ -25,7 +26,7 @@ library(plotly)
 library(furrr)
 plan(multisession)
 
-options(dplyr.summarise.inform = F)
+options(dplyr.summarise.inform = FALSE)
 
 # vars
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
@@ -45,15 +46,12 @@ pallete_list <- c(
   "wait" = "#a76315"
 )
 
-NUM_EXPS <- 7
+num_exps <- 7
 ```
 
 
 
 ## Load all of the throw data
-
-
-
 ```{r}
 # load omnibus dataframe
 omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
@@ -78,36 +76,79 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
 ) %>% # filter out practice blocks
   filter(block_num > 4)
 
-# Optionally make learning rate summaries
-# do the following if learning_rate_df.csv doesn't exist in ../data/processed
+# Optionally compute learning rate fits
+# Do the following if learning_rate_df.csv doesn't exist in ../data/processed
 # This takes a loong time
 if (!file.exists("../data/processed/learning_rate_df.csv")) {
   print(Sys.time())
-  apply_exponentialFit <- function(df) {
+  apply_exponential_fit <- function(df) {
     df %>%
       summarise(
         ppid = first(ppid),
         experiment = first(experiment),
         test_type = first(test_type),
-        exponentialFit = exponentialFit2(norm_throw_deviation, mode = test_type[1])
+        exponentialFit = exponentialFit(
+          norm_throw_deviation,
+          mode = test_type[1]
+        )
       )
   }
 
-  block_init_learning_rates <- omnibus_df %>%
+  init_learning_rates <- omnibus_df %>%
     filter(str_detect(test_type, "init")) %>%
     group_by(ppid, experiment, test_type) %>%
     group_split() %>%
-    future_map(apply_exponentialFit) %>%
+    future_map(apply_exponential_fit) %>%
     bind_rows() %>%
     unnest(cols = c("exponentialFit"))
 
-  print("done")
+  print("done 2 param fits")
   print(Sys.time())
 
-  write_csv(block_init_learning_rates, "../data/processed/learning_rate_df.csv")
+  write_csv(init_learning_rates, "../data/processed/learning_rate_df.csv")
+
+  # repeat using exponentialFit_3par
+  apply_exponential_fit_3par <- function(df) {
+    df %>%
+      summarise(
+        ppid = first(ppid),
+        experiment = first(experiment),
+        test_type = first(test_type),
+        exponentialFit = exponentialFit_3par(
+          norm_throw_deviation,
+          mode = test_type[1]
+        )
+      )
+  }
+
+  init_learning_rates_3par <- omnibus_df %>%
+    filter(str_detect(test_type, "init")) %>%
+    group_by(ppid, experiment, test_type) %>%
+    group_split() %>%
+    future_map(apply_exponential_fit_3par) %>%
+    bind_rows() %>%
+    unnest(cols = c("exponentialFit"))
+
+  print("done 3 param fits")
+  print(Sys.time())
+
+  write_csv(
+    init_learning_rates_3par,
+    "../data/processed/learning_rate_df_3par.csv"
+  )
 } else {
   print("learning_rate_df.csv exists, loading from file")
-  block_init_learning_rates <- read_csv("../data/processed/learning_rate_df.csv",
+  init_learning_rates <- read_csv(
+    "../data/processed/learning_rate_df.csv",
+    col_types = cols(
+      .default = col_double(),
+      experiment = col_factor(),
+      test_type = col_factor()
+    )
+  )
+
+  init_learning_rates_3par <- read_csv(
+    "../data/processed/learning_rate_df_3par.csv",
     col_types = cols(
       .default = col_double(),
       experiment = col_factor(),
@@ -117,7 +158,7 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
 }
 ```
 
-# Visualizing data (univariate)
+# Visualizing Data (Univariate)
 Vectors representing the throw velocity (trace 0) and the velocity applied to the ball (trace 1). The y dimention of the throw is essentially ignored (in reality there is a slight tilt added to account for the tilt of the surface).
 ```{r}
 test_ppt <- 3
@@ -137,8 +178,14 @@ y2 <- trial_df$flick_direction_y * -1
 z2 <- trial_df$flick_direction_z * -1
 
 # plot both
-p <- plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "lines") %>%
-  add_trace(x = c(0, x2), y = c(0, y2), z = c(0, z2), type = "scatter3d", mode = "lines") %>%
+p <- plot_ly(
+  x = c(0, x), y = c(0, y), z = c(0, z),
+  type = "scatter3d", mode = "lines"
+) %>%
+  add_trace(
+    x = c(0, x2), y = c(0, y2), z = c(0, z2),
+    type = "scatter3d", mode = "lines"
+  ) %>%
   layout(scene = list(
     xaxis = list(title = "x", range = c(-2, 2)),
     yaxis = list(title = "y", range = c(-1, 3)),
@@ -148,6 +195,8 @@ p <- plot_ly(x = c(0, x), y = c(0, y), z = c(0, z), type = "scatter3d", mode = "
 
 # Render the plot
 p
+
+rm(trial_df)
 ```
 note: this is a rotated trial
 
@@ -192,9 +241,8 @@ p <- ggplot(omnibus_df, aes(
 p
 ```
 
-# Original Experiments
-
-### Plot ANGULAR DEVIATIONS (hand angles)
+# ANGULAR DEVIATION Plots (hand angles)
+### All Trials
 Note: Blues = Acceleration Perturbations
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # rest of the exps
@@ -232,18 +280,6 @@ p <- p +
     colour = "#CCCCCC", linetype = "dashed"
   )
 
-# p <- p +
-#   scale_y_continuous(
-#     limits = c(-10, 35),
-#     breaks = c(0, 15, 30),
-#     labels = c(0, 15, 30)
-#   ) +
-#   scale_x_continuous(
-#     limits = c(0, 180),
-#     breaks = c(0, 60, 120, 180),
-#     labels = c(0, 60, 120, 180)
-#   )
-
 # set font size to 11
 p <- p +
   theme(text = element_text(size = 11))
@@ -263,16 +299,6 @@ p <- p +
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
-
-# # save
-# if (save_plots) {
-#   ggsave(
-#   p,
-#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-#   height = 4, width = 6
-#   )
-#   }
-
 ggplotly(p)
 
 # p
@@ -288,7 +314,7 @@ data_per_group <- data_per_group %>%
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
 data_per_group <- data_per_group %>%
-  mutate(dummy_x = rep(1:(nrow(data_per_group) / NUM_EXPS),
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
     length.out = nrow(data_per_group)
   ))
 
@@ -341,7 +367,8 @@ p <- p +
 
 ggplotly(p)
 ```
-### Plot NORMALIZED ANGULAR DEVIATIONS (hand angles)
+# NORMALIZED ANGULAR DEVIATIONS (hand angles)
+### All Trials
 Note: Blues = Acceleration Perturbations
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # rest of the exps
@@ -379,18 +406,6 @@ p <- p +
     colour = "#CCCCCC", linetype = "dashed"
   )
 
-# p <- p +
-#   scale_y_continuous(
-#     limits = c(-10, 35),
-#     breaks = c(0, 15, 30),
-#     labels = c(0, 15, 30)
-#   ) +
-#   scale_x_continuous(
-#     limits = c(0, 180),
-#     breaks = c(0, 60, 120, 180),
-#     labels = c(0, 60, 120, 180)
-#   )
-
 # set font size to 11
 p <- p +
   theme(text = element_text(size = 11))
@@ -410,16 +425,6 @@ p <- p +
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
-
-# # save
-# if (save_plots) {
-#   ggsave(
-#   p,
-#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-#   height = 4, width = 6
-#   )
-#   }
-
 ggplotly(p)
 
 # p
@@ -432,10 +437,11 @@ data_per_group <- data_per_group %>%
   filter(
     test_type != "other"
   )
+
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
 data_per_group <- data_per_group %>%
-  mutate(dummy_x = rep(1:(nrow(data_per_group) / NUM_EXPS),
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
     length.out = nrow(data_per_group)
   ))
 
@@ -489,25 +495,26 @@ p <- p +
 ggplotly(p)
 ```
 
-## Learning Rates, Start Points and Asymptotes
+## Exponential Decay Fits for the Learning and Washout Phases
 ### Learning Rates
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
-data_ppt <- block_init_learning_rates %>%
-  filter(experiment != "a_ball_roll_animate_surface")
+data_per_ppt <- init_learning_rates %>%
+  filter(
+    experiment != "a_ball_roll_animate_surface",
+    test_type != "transfer_init"
+  )
 
-data_group <- data_ppt %>%
+data_per_group <- data_per_ppt %>%
   group_by(experiment, test_type) %>%
   summarise(
     mean_learning_rate = mean(exp_fit_lambda),
     ci_learning_rate = vector_confint(exp_fit_lambda),
     mean_high = mean(exp_fit_N0),
     ci_high = vector_confint(exp_fit_N0),
-    mean_low = mean(exp_fit_displace),
-    ci_low = vector_confint(exp_fit_displace),
     .groups = "drop"
   )
 
-p <- data_group %>%
+p <- data_per_group %>%
   ggplot(
     aes(x = experiment, y = mean_learning_rate, colour = experiment)
   ) +
@@ -521,13 +528,14 @@ p <- data_group %>%
 # remove all x axis labels
 p <- p + theme(axis.text.x = element_blank())
 
-# for the colour legend, only show the first 7 Note this doesn't work for the plotly plot
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
 p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
 
 # add data points
 p <- p +
   geom_beeswarm(
-    data = data_ppt,
+    data = data_per_ppt,
     aes(
       y = exp_fit_lambda
     ),
@@ -551,7 +559,7 @@ ggplotly(p)
 
 ### High Points (Asymptotes or Starts)
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
-p <- data_group %>%
+p <- data_per_group %>%
   ggplot(
     aes(x = experiment, y = mean_high, colour = experiment)
   ) +
@@ -565,13 +573,14 @@ p <- data_group %>%
 # remove all x axis labels
 p <- p + theme(axis.text.x = element_blank())
 
-# for the colour legend, only show the first 7 Note this doesn't work for the plotly plot
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
 p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
 
 # add data points
 p <- p +
   geom_beeswarm(
-    data = data_ppt,
+    data = data_per_ppt,
     aes(
       y = exp_fit_N0
     ),
@@ -592,29 +601,162 @@ p <- p +
 ggplotly(p)
 # p
 ```
-### Low Points (Asymptotes or Starts)
+For washout: The CUED accel + curved have a lower starting point (therefore -- cue works). VMR group has slightly lower.
+When comparing everything with a high starting point, the  ACCEL group has a much FASTER learning rate. 
+
+### High Points v Learning Rates
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
-p <- data_group %>%
+# Compare learning rates and high points
+p <- data_per_ppt %>%
   ggplot(
-    aes(x = experiment, y = mean_low, colour = experiment)
+    aes(x = exp_fit_lambda, y = exp_fit_N0, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = "Learning Rate",
+    y = "High Point"
+  ) +
+  facet_wrap(~test_type) +
+  geom_point() +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+```
+
+## Exponential Decay Fits for the Transfer Phase
+
+### Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- init_learning_rates_3par %>%
+  filter(
+    experiment != "a_ball_roll_animate_surface",
+    test_type == "transfer_init"
+  )
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment, test_type) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    mean_low = mean(exp_fit_displace),
+    ci_low = vector_confint(exp_fit_displace),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
   ) +
   theme_classic() +
   labs(
     x = NULL,
-    y = "Low Point"
+    y = "Learning Rate"
   ) +
   facet_wrap(~test_type)
 
 # remove all x axis labels
 p <- p + theme(axis.text.x = element_blank())
 
-# for the colour legend, only show the first 7 Note this doesn't work for the plotly plot
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
 p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
 
 # add data points
 p <- p +
   geom_beeswarm(
-    data = data_ppt,
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+# p
+```
+### High Points (Asymptotes)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "High Point (Asymptotes)"
+  ) +
+  facet_wrap(~test_type)
+
+# remove all x axis labels
+p <- p + theme(axis.text.x = element_blank())
+
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
+p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+
+# add data points
+p <- p +
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+# p
+```
+
+### Low Points (Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_low, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Low Point (Starts)"
+  ) +
+  facet_wrap(~test_type)
+
+# remove all x axis labels
+p <- p + theme(axis.text.x = element_blank())
+
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
+p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+
+# add data points
+p <- p +
+  geom_beeswarm(
+    data = data_per_ppt,
     aes(
       y = exp_fit_displace
     ),
@@ -636,42 +778,21 @@ ggplotly(p)
 # p
 ```
 
-For washout: The CUED accel + curved have a lower starting point (therefore -- cue works). VMR group has slightly lower.
-When comparing everything with a high starting point, the  ACCEL group has a much FASTER learning rate. 
-When transferring, no difference in learning rates.
-
-```{r, fig.width=10, fig.height=6, out.width="100%"}
-# Compare learning rates and high points
-p <- data_ppt %>%
-  ggplot(
-    aes(x = exp_fit_lambda, y = exp_fit_N0, colour = experiment)
-  ) +
-  theme_classic() +
-  labs(
-    x = "Learning Rate",
-    y = "High Point"
-  ) +
-  facet_wrap(~test_type) +
-  geom_point() +
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list)
-
-ggplotly(p)
-```
+When transferring, what happens?
 
 ### Correlations within the 3 variables above
 
 ```{r, fig.width=10, fig.height=6, out.width="100%", warning=FALSE}
 # 3d plot of learning rates, high points, and low points
 # filter out just the washout trials for now
-data_ppt <- block_init_learning_rates %>%
-  filter(test_type == "washout_init")
+data_per_ppt <- init_learning_rates_3par %>%
+  filter(test_type == "transfer_init")
 
 p <- plot_ly(type = "scatter3d", mode = "markers")
 
-for (experiment_ in unique(data_ppt$experiment)) {
+for (experiment_ in unique(data_per_ppt$experiment)) {
   # get the data for this block
-  to_plot_data <- filter(data_ppt, experiment == experiment_)
+  to_plot_data <- filter(data_per_ppt, experiment == experiment_)
 
   p <- p %>%
     add_trace(
@@ -699,16 +820,18 @@ p
 
 - We might want to test if data points cluster differently depending on the experiment conditions.
 - Note: It is a good idea to do some EDA to check if all 3 dimensions are required. Correlation matrix?
-- 
 
+
+### Inidividual Data within 1 group
 ```{r}
-### TESTING
+### Error Size ###
+
 # rest of the exps
-data_ <- omnibus_df %>%
+data_per_ppt <- omnibus_df %>%
   filter(experiment == "accel_uncued", test_type == "washout_init")
 
 # set up plot
-p <- data_ %>%
+p <- data_per_ppt %>%
   ggplot(
     aes(
       x = trial_num, y = norm_throw_deviation, colour = ppid
@@ -732,18 +855,6 @@ p <- p +
     colour = "#CCCCCC", linetype = "dashed"
   )
 
-# p <- p +
-#   scale_y_continuous(
-#     limits = c(-10, 35),
-#     breaks = c(0, 15, 30),
-#     labels = c(0, 15, 30)
-#   ) +
-#   scale_x_continuous(
-#     limits = c(0, 180),
-#     breaks = c(0, 60, 120, 180),
-#     labels = c(0, 60, 120, 180)
-#   )
-
 # set font size to 11
 p <- p +
   theme(text = element_text(size = 11))
@@ -751,23 +862,12 @@ p <- p +
 # add confidence intervals and data points
 p <- p + geom_line()
 
-
-
-# # save
-# if (save_plots) {
-#   ggsave(
-#   p,
-#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-#   height = 4, width = 6
-#   )
-#   }
-
 ggplotly(p)
 
 # p
 ```
 
-## Plot ERROR SIZE
+# ERROR SIZE
 Note: Blues = Acceleration Perturbations
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # original experiments only
@@ -805,18 +905,6 @@ p <- p +
     colour = "#CCCCCC", linetype = "dashed"
   )
 
-# p <- p +
-#   scale_y_continuous(
-#     limits = c(-10, 35),
-#     breaks = c(0, 15, 30),
-#     labels = c(0, 15, 30)
-#   ) +
-#   scale_x_continuous(
-#     limits = c(0, 180),
-#     breaks = c(0, 60, 120, 180),
-#     labels = c(0, 60, 120, 180)
-#   )
-
 # set font size to 11
 p <- p +
   theme(text = element_text(size = 11))
@@ -836,16 +924,6 @@ p <- p +
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
-
-# # save
-# if (save_plots) {
-#   ggsave(
-#   p,
-#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-#   height = 4, width = 6
-#   )
-#   }
-
 ggplotly(p)
 
 # p
@@ -864,7 +942,7 @@ data_per_group <- data_per_group %>%
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
 data_per_group <- data_per_group %>%
-  mutate(dummy_x = rep(1:(nrow(data_per_group) / NUM_EXPS),
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
     length.out = nrow(data_per_group)
   ))
 
@@ -968,18 +1046,6 @@ p <- p +
     colour = "#CCCCCC", linetype = "dashed"
   )
 
-# p <- p +
-#   scale_y_continuous(
-#     limits = c(-10, 35),
-#     breaks = c(0, 15, 30),
-#     labels = c(0, 15, 30)
-#   ) +
-#   scale_x_continuous(
-#     limits = c(0, 180),
-#     breaks = c(0, 60, 120, 180),
-#     labels = c(0, 60, 120, 180)
-#   )
-
 # set font size to 11
 p <- p +
   theme(text = element_text(size = 11))
@@ -1009,15 +1075,6 @@ p <- p +
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
-# # save
-# if (save_plots) {
-#   ggsave(
-#   p,
-#   filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-#   height = 4, width = 6
-#   )
-#   }
-
 ggplotly(p)
 # p
 ```
@@ -1025,27 +1082,29 @@ ggplotly(p)
 ### Washout trials after half VS full animations
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 # first, isolate the data
-data <- omnibus_df %>%
+data_per_ppt_anim <- omnibus_df %>%
   filter(
     exp_label == "animate_surface",
     baseline_block == FALSE,
     test_type == "washout_anim"
-  )
-
-data_per_ppt <- data %>%
+  ) %>%
   group_by(ppid, prior_anim, trial_num_in_block) %>%
   summarise(
-    ppt_mean_deviation = median(throw_deviation),
-    ppt_ci_deviation = vector_confint(throw_deviation),
-    n = n()
-  )
+    ppt_median_deviation = median(throw_deviation),
+    .groups = "drop"
+  ) %>% # prior_anim rename to experiment (to match the other comparisons)
+  mutate(
+    experiment = prior_anim,
+    throw_deviation = ppt_median_deviation
+  ) %>%
+  select(-prior_anim, -ppt_median_deviation)
 
-data_per_group <- data_per_ppt %>%
-  group_by(prior_anim, trial_num_in_block) %>%
+data_per_group <- data_per_ppt_anim %>%
+  group_by(experiment, trial_num_in_block) %>%
   summarise(
-    mean_deviation = mean(ppt_mean_deviation),
-    ci_deviation = vector_confint(ppt_mean_deviation),
-    n = sum(n)
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation),
+    n = n()
   )
 
 # set up plot
@@ -1053,7 +1112,7 @@ p <- data_per_group %>%
   ggplot(
     aes(
       x = trial_num_in_block, y = mean_deviation,
-      colour = prior_anim, fill = prior_anim
+      colour = experiment, fill = experiment
     )
   ) +
   theme_classic() +
@@ -1075,60 +1134,51 @@ p <- p +
   )
 
 # add data points
-p <- p + geom_beeswarm(
-  data = data_per_ppt,
-  aes(
-    y = ppt_mean_deviation,
-    colour = prior_anim
-  ),
-  size = 1, dodge.width = 0.5
-) + geom_ribbon(
-  aes(
-    ymin = mean_deviation - ci_deviation,
-    ymax = mean_deviation + ci_deviation
-  ),
-  colour = NA, alpha = 0.3
-) + geom_line()
+p <- p +
+  geom_ribbon(
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  geom_line()
 
 # add washout_init from the 30-degree rotation condition
 data_per_ppt_30 <- omnibus_df %>%
   filter(
     experiment %in% c("rot30_cued_tilt", "rot30_uncued"),
-    test_type == "washout_init"
-  ) %>% # rename the experiment column to prior_anim
-  mutate(prior_anim = experiment)
+    test_type == "washout_init",
+    trial_num_in_block <= 8
+  ) %>%
+  select(ppid, trial_num_in_block, experiment, throw_deviation)
 
 data_per_group_30 <- data_per_ppt_30 %>%
-  group_by(prior_anim, trial_num_in_block) %>%
+  group_by(experiment, trial_num_in_block) %>%
   summarise(
     mean_deviation = mean(throw_deviation),
     ci_deviation = vector_confint(throw_deviation),
-    n = n()
+    n = n(),
+    .groups = "drop"
   )
-
 
 # add data points
-p <- p + geom_beeswarm(
-  data = data_per_ppt_30,
-  aes(
-    y = throw_deviation,
-    colour = prior_anim
-  ),
-  size = 1, dodge.width = 0.5
-) + geom_ribbon(
-  data = data_per_group_30,
-  aes(
-    ymin = mean_deviation - ci_deviation,
-    ymax = mean_deviation + ci_deviation,
-    fill = prior_anim
-  ),
-  colour = NA, alpha = 0.3
-) + geom_line(
-  data = data_per_group_30,
-  aes(
-    colour = prior_anim
+p <- p +
+  geom_ribbon(
+    data = data_per_group_30,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  geom_line(
+    data = data_per_group_30,
+    aes(
+      colour = experiment
+    )
   )
-)
 
 # set colour palette
 p <- p +
@@ -1137,6 +1187,181 @@ p <- p +
 
 ggplotly(p)
 ```
+
+```{r}
+# rbind data_per_ppt_anim and data_per_ppt_30
+anim_comparison_df <- rbind(
+  data_per_ppt_anim,
+  data_per_ppt_30
+)
+
+# remove data_per_ppt_anim and data_per_ppt_30
+rm(data_per_ppt_anim, data_per_ppt_30)
+
+# Optionally compute learning rate fits
+# Do if learning_rate_df_anim.csv doesn't exist in ../data/processed
+if (!file.exists("../data/processed/learning_rate_df_anim.csv")) {
+  print(Sys.time())
+  apply_exponential_fit <- function(df) {
+    df %>%
+      summarise(
+        ppid = first(ppid),
+        experiment = first(experiment),
+        exponentialFit = exponentialFit(throw_deviation,
+          mode = "washout_init"
+        )
+      )
+  }
+
+  anim_learning_rates <- anim_comparison_df %>%
+    group_by(ppid, experiment) %>%
+    group_split() %>%
+    future_map(apply_exponential_fit) %>%
+    bind_rows() %>%
+    unnest(cols = c("exponentialFit"))
+
+  print("done 2 param fits")
+  print(Sys.time())
+
+  write_csv(
+    anim_learning_rates,
+    "../data/processed/learning_rate_df_anim.csv"
+  )
+} else {
+  anim_learning_rates <- read_csv(
+    "../data/processed/learning_rate_df_anim.csv",
+    col_types = cols(
+      .default = col_double(),
+      ppid = col_factor(),
+      experiment = col_factor()
+    )
+  )
+}
+```
+### Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- anim_learning_rates
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Learning Rate"
+  )
+
+# remove all x axis labels
+p <- p + theme(axis.text.x = element_blank())
+
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
+p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+
+# add data points
+p <- p +
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+# p
+```
+
+### High Points (Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Start Point"
+  )
+
+# remove all x axis labels
+p <- p + theme(axis.text.x = element_blank())
+
+# for the colour legend, only show the first 7
+# Note this doesn't work for the plotly plot
+p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+
+# add data points
+p <- p +
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# set colour palette
+p <- p +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+# p
+```
+### High Points v Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# Compare learning rates and high points
+p <- data_per_ppt %>%
+  ggplot(
+    aes(x = exp_fit_lambda, y = exp_fit_N0, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = "Learning Rate",
+    y = "High Point (Starts)"
+  ) +
+  geom_point() +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+ggplotly(p)
+```
+
+
+
+
+
+
+
 
 
 ```{r, include=FALSE}
@@ -1149,13 +1374,12 @@ ggplotly(p)
 ## Success manifolds
 ### Without any tilts
 ```{r, fig.width=9, fig.height=20}
-# ggplotly(plot_success_manifold_no_tilt())
 plot_success_manifold_no_tilt()
 ```
 
 ### With tilt present
 ```{r, fig.width=9, fig.height=20}
-ggplotly(plot_success_manifold_tilt())
+plot_success_manifold_tilt()
 ```
 
 

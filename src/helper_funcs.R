@@ -272,9 +272,9 @@ exponentialFit <- function(signal, timepoints=length(signal), mode='training_ini
 }
 
 
+## 3-parameter versions of the above model, allows for a vertical shift
 
-
-exponentialModel2 <- function(par, timepoints, mode, setN0=NULL) {
+exponentialModel_3par <- function(par, timepoints, mode, setN0=NULL) {
   
   if (length(timepoints) == 1) {
     timepoints <- c(0:(timepoints-1))
@@ -296,15 +296,15 @@ exponentialModel2 <- function(par, timepoints, mode, setN0=NULL) {
   
 }
 
-exponentialMSE2 <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode, setN0=NULL) {
+exponentialMSE_3par <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode, setN0=NULL) {
   
-  MSE <- mean((exponentialModel2(par, timepoints, mode=mode, setN0=setN0)$output - signal)^2, na.rm=TRUE)
+  MSE <- mean((exponentialModel_3par(par, timepoints, mode=mode, setN0=setN0)$output - signal)^2, na.rm=TRUE)
   
   return( MSE )
   
 }
 
-exponentialFit2 <- function(signal, timepoints=length(signal), mode, gridpoints=11, gridfits=10, setN0=NULL) {
+exponentialFit_3par <- function(signal, timepoints=length(signal), mode, gridpoints=11, gridfits=10, setN0=NULL) {
   
   # set the search grid:
   parvals <- seq(1/gridpoints/2,1-(1/gridpoints/2),1/gridpoints)
@@ -325,14 +325,14 @@ exponentialFit2 <- function(signal, timepoints=length(signal), mode, gridpoints=
     hi <- c(1,asymptoteRange[2],asymptoteRange[2])
   }
   # evaluate starting positions:
-  MSE <- apply(searchgrid, FUN=exponentialMSE2, MARGIN=c(1), signal=signal, timepoints=timepoints, mode=mode, setN0=setN0)
+  MSE <- apply(searchgrid, FUN=exponentialMSE_3par, MARGIN=c(1), signal=signal, timepoints=timepoints, mode=mode, setN0=setN0)
   
   # run optimx on the best starting positions:
   allfits <- do.call("rbind",
                      apply( data.frame(searchgrid[order(MSE)[1:gridfits],]),
                             MARGIN=c(1),
                             FUN=optimx::optimx,
-                            fn=exponentialMSE2,
+                            fn=exponentialMSE_3par,
                             method     = 'L-BFGS-B',
                             lower      = lo,
                             upper      = hi,
