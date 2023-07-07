@@ -19,8 +19,14 @@ source("../scripts/figure_funcs.R")
 library(data.table)
 library(tidyverse)
 library(ggbeeswarm)
+
+# for statistics
 library(ez) # for ANOVAs
+library(afex) # for ANOVAs
+library(emmeans)
 library(effectsize) # for eta-squared
+library(BayesFactor)
+library(bayestestR)
 
 library(furrr)
 plan(multisession)
@@ -46,7 +52,8 @@ pallete_list <- c(
 )
 
 num_exps <- 7
-save_plots <- FALSE
+save_plots <- TRUE
+text_size <- 9
 ```
 
 
@@ -109,8 +116,8 @@ anim_learning_rates <- read_csv(
 ```
 # Figure 1: Setup
 # Figure 2: Learning Curves
-
-```{r}
+## All data
+```{r, fig.width=10, fig.height=6, out.width="100%"}
 # filter out data
 data_per_ppt <- omnibus_df %>%
   filter(
@@ -128,9 +135,13 @@ data_per_ppt <- omnibus_df %>%
     )
   )
 
+# vars
+bl_trial_shift <- 213
+num_exps <- 4
+
 # make per_group df
 data_per_group <- data_per_ppt %>%
-  group_by(experiment, test_type, trial_num) %>%
+  group_by(experiment, block_num, test_type, trial_num) %>%
   summarise(
     mean_deviation = mean(throw_deviation),
     ci_deviation = vector_confint(throw_deviation),
@@ -140,22 +151,23 @@ data_per_group <- data_per_ppt %>%
 
 # set up plot
 p <- data_per_group %>%
+  filter(block_num != 14) %>%
   ggplot(
     aes(
-      x = trial_num - 213,
+      x = trial_num - bl_trial_shift,
       y = mean_deviation,
       colour = experiment
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+    ) +
   labs(
-    x = "Trial Number",
+    x = "Trial",
     y = "Throw Angle (°)"
-  )
-
-# add horizontal lines
-p <- p +
+  ) + # add horizontal lines
   geom_hline(
     yintercept = c(0, -30), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
@@ -163,11 +175,14 @@ p <- p +
   geom_hline(
     yintercept = c(-15), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
-  )
-
-p <- p +
+  ) + # add vertical lines
+  geom_vline(
+    xintercept = c(333.5 - bl_trial_shift), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # scale axes
   scale_y_continuous(
-    # limits = c(-35, 5),
+    limits = c(-42, 5),
     breaks = c(0, -15, -30),
     labels = c(0, -15, -30)
   ) +
@@ -175,36 +190,717 @@ p <- p +
     # limits = c(0, 160),
     breaks = c(0, 40, 80, 120, 160),
     labels = c(0, 40, 80, 120, 160)
+  ) +
+  # add confidence intervals and data points
+  geom_ribbon(
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  geom_ribbon(
+    data = data_per_group %>%
+      filter(block_num == 14),
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  geom_line() +
+  geom_line(
+    data = data_per_group %>%
+      filter(block_num == 14)
+  ) + # set colour palette
+  scale_colour_manual(
+    values = pallete_list
+  ) +
+  scale_fill_manual(
+    values = pallete_list
   )
-
-# set font size to 11
-p <- p +
-  theme(text = element_text(size = 11))
-
-# add confidence intervals and data points
-p <- p + geom_ribbon(
-  aes(
-    ymin = mean_deviation - ci_deviation,
-    ymax = mean_deviation + ci_deviation,
-    fill = experiment
-  ),
-  colour = NA, alpha = 0.3
-) + geom_line()
-
-# set colour palette
-p <- p +
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list)
 
 # save
 if (save_plots) {
   ggsave(
     p,
-    filename = "../plots/paper_figs/sr_30_training.pdf", device = "pdf",
-    height = 4, width = 6
+    filename = "../data/figs/paper_figs/initial_exps_all.pdf", device = "pdf",
+    height = 2, width = 3.75
   )
 }
 
 p
+```
+
+## Phases (used for model fitting)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# filter out just the trials of interest
+data_per_group <- data_per_group %>%
+  filter(
+    test_type != "other"
+  )
+# add a dummy column with repeating sequence
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
+    length.out = nrow(data_per_group)
+  ))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none",
+        text = element_text(size = text_size)
+        ) +
+  labs(
+    x = "Phases",
+    y = "Throw Angle (°)"
+  ) + # add horizontal lines
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) + # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    limits = c(-42, 5),
+    breaks = c(0, -15, -30),
+    labels = c(0, -15, -30)
+  ) +
+  scale_x_continuous(
+    # limits = c(0, 160),
+    breaks = c(0, 40, 80, 120),
+    labels = c(0, 1, 2, 3)
+  )
+
+# add confidence intervals and data points
+for (unique_test_type in unique(data_per_group$test_type)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_phases.pdf", device = "pdf",
+    height = 2, width = 3.75
+  )
+}
+
+p
+```
+
+To better compare across all our studies, we normalize all our data using the last 2 trial-sets in the Initial Learning phase.
+
+Note: we can see if each group is different from 1 at the end of training to see if they fully adapted by the end of the Initial Learning phase.
+
+## Normalized Training Phases
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    ),
+    trial_num >= 214,
+    str_detect(test_type, "training")
+  ) %>%
+  group_by(experiment, test_type, trial_num) %>%
+  summarise(
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
+    .groups = "drop"
+  )
+
+# add a dummy column with repeating sequence
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
+    length.out = nrow(data_per_group)
+  ))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none",
+        text = element_text(size = text_size)
+        ) +
+  labs(
+    x = "Trial",
+    y = "Normalized Throw Angle"
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5)
+  ) +
+  scale_x_continuous(
+    breaks = c(0, 40, 80, 120),
+    labels = c(0, 1, 2, 3)
+  )
+
+# add confidence intervals and data points
+for (unique_test_type in unique(data_per_group$test_type)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_normalized_training.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+## Training - Fit Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- init_learning_rates %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    ),
+    test_type == "training_init"
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2]),
+    ppid = factor(ppid)
+  )
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment, test_type) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Learning Rate"
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # colour legend settings
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_training_learning_rates.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+### Statistics
+
+We are using the afex package for the aov_car function. This allows for used mixed (within/between) factor ANOVAs.
+Here is an example formula for using aov_car: dependent_variable ~ between_factor1 * between_factor2 + Error(subject/(within_factor * within_factor))
+```{r}
+(temp_ANOVA <- aov_car(exp_fit_lambda ~ pert * cue + Error(ppid), 
+                       data_per_ppt))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(exp_fit_lambda ~ pert * cue, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+
+```{r}
+# posthoc tests
+(m1 <- emmeans(temp_ANOVA, ~ cue))
+print("Pairwise comparisons:")
+print(pairs(m1))
+```
+
+## Training - Fit High Points (Asymptotes)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Asymptote of Adaptation"
+  ) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(0.5, 1.75),
+    breaks = c(0.5, 0.75, 1, 1.25, 1.5),
+    labels = c(0.5, 0.75, 1, 1.25, 1.5)
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_training_asymptotes.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+```{r}
+(temp_ANOVA <- aov_car(exp_fit_N0 ~ pert * cue + Error(ppid), 
+                       data_per_ppt))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(exp_fit_N0 ~ pert * cue, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+
+```{r}
+# posthoc tests
+(m1 <- emmeans(temp_ANOVA, ~ cue * pert))
+print("Pairwise comparisons:")
+print(pairs(m1))
+```
+
+## Normalized Washout Phases
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    ),
+    trial_num >= 214,
+    str_detect(test_type, "washout")
+  ) %>%
+  group_by(experiment, test_type, trial_num) %>%
+  summarise(
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
+    .groups = "drop"
+  )
+
+# add a dummy column with repeating sequence
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
+    length.out = nrow(data_per_group)
+  ))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none",
+        text = element_text(size = text_size)
+        ) +
+  labs(
+    x = "Trial",
+    y = "Normalized\nThrow Angle"
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5)
+  ) +
+  scale_x_continuous(
+    breaks = c(0, 40, 80, 120),
+    labels = c(0, 1, 2, 3)
+  )
+
+# add confidence intervals and data points
+for (unique_test_type in unique(data_per_group$test_type)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_normalized_washout.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+## Washout - Fit Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- init_learning_rates %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    ),
+    test_type == "washout_init"
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2]),
+    ppid = factor(ppid)
+  )
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment, test_type) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Decay Rate"
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # colour legend settings
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_washout_learning_rates.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+```{r}
+(temp_ANOVA <- aov_car(exp_fit_lambda ~ pert * cue + Error(ppid), 
+                       data_per_ppt))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(exp_fit_lambda ~ pert * cue, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+
+```{r}
+# posthoc tests
+(m1 <- emmeans(temp_ANOVA, ~ pert * cue))
+print("Pairwise comparisons:")
+print(pairs(m1))
+```
+
+## Washout - Fit High Points (Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Start Point of Decay"
+  ) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(-0.1, 1.6),
+    breaks = c(0, 0.25, 0.5, 0.75, 1, 1.25, 1.5),
+    labels = c(0, 0.25, 0.5, 0.75, 1, 1.25, 1.5)
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/initial_exps_washout_starts.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+```{r}
+(temp_ANOVA <- aov_car(exp_fit_N0 ~ pert * cue + Error(ppid), 
+                       data_per_ppt))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(exp_fit_N0 ~ pert * cue, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+
+```{r}
+# posthoc tests
+(m1 <- emmeans(temp_ANOVA, ~ cue * pert))
+print("Pairwise comparisons:")
+print(pairs(m1))
+```
+
+
+```{r}
+
 ```
 

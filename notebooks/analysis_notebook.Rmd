@@ -267,10 +267,7 @@ p <- data_per_group %>%
   labs(
     x = "Trial Number",
     y = "Throw Angle (°)"
-  )
-
-# add horizontal lines
-p <- p +
+  ) + # add horizontal lines
   geom_hline(
     yintercept = c(0, -30), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
@@ -278,24 +275,19 @@ p <- p +
   geom_hline(
     yintercept = c(-15), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
-  )
-
-# set font size to 11
-p <- p +
-  theme(text = element_text(size = 11))
-
-# add confidence intervals and data points
-p <- p + geom_ribbon(
+  ) + # set font size to 11
+  theme(
+    text = element_text(size = 11)
+  ) + # add confidence intervals and data points
+  geom_ribbon(
   aes(
     ymin = mean_deviation - ci_deviation,
     ymax = mean_deviation + ci_deviation,
     fill = experiment
   ),
   colour = NA, alpha = 0.3
-) + geom_line()
-
-# set colour palette
-p <- p +
+  ) + 
+  geom_line() + # set colour palette
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
@@ -330,10 +322,7 @@ p <- data_per_group %>%
   labs(
     x = "Trial Number",
     y = "Throw Angle (°)"
-  )
-
-# add horizontal lines
-p <- p +
+  ) + # add horizontal lines
   geom_hline(
     yintercept = c(0, -30), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
@@ -341,7 +330,9 @@ p <- p +
   geom_hline(
     yintercept = c(-15), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
-  )
+  ) + # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
 
 # add confidence intervals and data points
 for (unique_test_type in unique(data_per_group$test_type)) {
@@ -360,10 +351,7 @@ for (unique_test_type in unique(data_per_group$test_type)) {
   )
 }
 
-# set colour palette
-p <- p +
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list)
+
 
 ggplotly(p)
 ```
@@ -457,10 +445,7 @@ p <- data_per_group %>%
   labs(
     x = "Trial Number",
     y = "Normalized Throw Angle"
-  )
-
-# add horizontal lines
-p <- p +
+  ) + # add horizontal lines
   geom_hline(
     yintercept = c(0, 1, 2), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
@@ -468,7 +453,9 @@ p <- p +
   geom_hline(
     yintercept = c(0.5, 1.5), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
-  )
+  ) + # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
 
 # add confidence intervals and data points
 for (unique_test_type in unique(data_per_group$test_type)) {
@@ -487,10 +474,7 @@ for (unique_test_type in unique(data_per_group$test_type)) {
   )
 }
 
-# set colour palette
-p <- p +
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list)
+
 
 ggplotly(p)
 ```
@@ -523,17 +507,19 @@ p <- data_per_group %>%
     x = NULL,
     y = "Learning Rate"
   ) +
-  facet_wrap(~test_type)
-
-# remove all x axis labels
-p <- p + theme(axis.text.x = element_blank())
-
-# for the colour legend, only show the first 7
-# Note this doesn't work for the plotly plot
-p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-# add data points
-p <- p +
+  facet_wrap(
+    ~test_type
+  ) + # remove all x axis labels
+  theme(
+  axis.text.x = element_blank()
+  ) + # colour legend settings
+  guides(
+  colour = guide_legend(override.aes = list(alpha = 1))
+  ) + # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+    ) + # add data points
   geom_beeswarm(
     data = data_per_ppt,
     aes(
@@ -547,11 +533,6 @@ p <- p +
     ymax = mean_learning_rate + ci_learning_rate
   ), alpha = 0.5, lwd = 2) +
   geom_point()
-
-# set colour palette
-p <- p +
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
 # p
@@ -568,17 +549,16 @@ p <- data_per_group %>%
     x = NULL,
     y = "High Point"
   ) +
-  facet_wrap(~test_type)
-
-# remove all x axis labels
-p <- p + theme(axis.text.x = element_blank())
-
-# for the colour legend, only show the first 7
-# Note this doesn't work for the plotly plot
-p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-# add data points
-p <- p +
+  facet_wrap(~test_type) + # remove all x axis labels
+  theme(axis.text.x = element_blank()) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(
+  colour = guide_legend(override.aes = list(alpha = 1))
+  )+ # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add data points
   geom_beeswarm(
     data = data_per_ppt,
     aes(
@@ -592,11 +572,6 @@ p <- p +
     ymax = mean_high + ci_high
   ), alpha = 0.5, lwd = 2) +
   geom_point()
-
-# set colour palette
-p <- p +
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list)
 
 ggplotly(p)
 # p
@@ -655,17 +630,13 @@ p <- data_per_group %>%
     x = NULL,
     y = "Learning Rate"
   ) +
-  facet_wrap(~test_type)
-
-# remove all x axis labels
-p <- p + theme(axis.text.x = element_blank())
-
-# for the colour legend, only show the first 7
-# Note this doesn't work for the plotly plot
-p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-# add data points
-p <- p +
+  facet_wrap(~test_type) +
+  # remove all x axis labels
+  theme(axis.text.x = element_blank()) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  # add data points
   geom_beeswarm(
     data = data_per_ppt,
     aes(
@@ -678,10 +649,8 @@ p <- p +
     ymin = mean_learning_rate - ci_learning_rate,
     ymax = mean_learning_rate + ci_learning_rate
   ), alpha = 0.5, lwd = 2) +
-  geom_point()
-
-# set colour palette
-p <- p +
+  geom_point() +
+  # set colour palette
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
@@ -699,17 +668,13 @@ p <- data_per_group %>%
     x = NULL,
     y = "High Point (Asymptotes)"
   ) +
-  facet_wrap(~test_type)
-
-# remove all x axis labels
-p <- p + theme(axis.text.x = element_blank())
-
-# for the colour legend, only show the first 7
-# Note this doesn't work for the plotly plot
-p <- p + guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-# add data points
-p <- p +
+  facet_wrap(~test_type) +
+  # remove all x axis labels
+  theme(axis.text.x = element_blank()) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  # add data points
   geom_beeswarm(
     data = data_per_ppt,
     aes(
@@ -722,10 +687,8 @@ p <- p +
     ymin = mean_high - ci_high,
     ymax = mean_high + ci_high
   ), alpha = 0.5, lwd = 2) +
-  geom_point()
-
-# set colour palette
-p <- p +
+  geom_point() +
+  # set colour palette
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
