@@ -65,7 +65,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
   # make a baseline_df
   bl_df_summary <- omnibus_df %>%
     filter(baseline_block == TRUE) %>%
-    group_by(ppid, task_type, hand, prior_anim) %>%
+    group_by(ppid, task_type, hand, prior_anim, target) %>%
     summarise(
       bl_deviation = median(raw_throw_deviation, na.rm = TRUE)
     )
@@ -77,7 +77,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
   # non equi join omnibus_df and bl_df_summary
   omnibus_df <- omnibus_df[
     bl_df_summary,
-    on = .(ppid, task_type, hand, prior_anim),
+    on = .(ppid, task_type, hand, prior_anim, target),
     nomatch = 0
   ]
 
@@ -257,15 +257,15 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 
 # #####  Test #####
 # directory_index = 120
-#
+# 
 # ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
 # # make a list of length length(ppt_list)
 # trial_df_list <- vector("list", length(ppt_list))
-
+# 
 # for (i in 1:length(ppt_list)) {
 #   trial_df_list[[i]] <- make_one_ppt_file(i, ppt_list)
 # }
-
+# 
 # omnibus_df <- do.call(rbind, trial_df_list)
 
 ##### Do #####
