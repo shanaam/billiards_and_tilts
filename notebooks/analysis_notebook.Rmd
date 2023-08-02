@@ -67,6 +67,8 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     surface_tilt = col_factor(),
     target = col_factor(),
     test_type = col_factor(),
+    phase = col_factor(),
+    learning_and_decay_curves = col_factor(),
     prior_anim = col_factor(),
     baseline_block = col_factor(),
     task_type = col_factor(),
@@ -86,17 +88,17 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
       summarise(
         ppid = first(ppid),
         experiment = first(experiment),
-        test_type = first(test_type),
+        phase = first(phase),
         exponentialFit = exponentialFit(
           norm_throw_deviation,
-          mode = test_type[1]
+          mode = phase[1]
         )
       )
   }
 
   init_learning_rates <- omnibus_df %>%
-    filter(str_detect(test_type, "init")) %>%
-    group_by(ppid, experiment, test_type) %>%
+    filter(learning_and_decay_curves == 1) %>%
+    group_by(ppid, experiment, phase) %>%
     group_split() %>%
     future_map(apply_exponential_fit) %>%
     bind_rows() %>%
@@ -113,17 +115,17 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
       summarise(
         ppid = first(ppid),
         experiment = first(experiment),
-        test_type = first(test_type),
+        phase = first(phase),
         exponentialFit = exponentialFit_3par(
           norm_throw_deviation,
-          mode = test_type[1]
+          mode = phase[1]
         )
       )
   }
 
   init_learning_rates_3par <- omnibus_df %>%
-    filter(str_detect(test_type, "init")) %>%
-    group_by(ppid, experiment, test_type) %>%
+    filter(learning_and_decay_curves == 1) %>%
+    group_by(ppid, experiment, phase) %>%
     group_split() %>%
     future_map(apply_exponential_fit_3par) %>%
     bind_rows() %>%
@@ -143,7 +145,7 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
     col_types = cols(
       .default = col_double(),
       experiment = col_factor(),
-      test_type = col_factor()
+      phase = col_factor()
     )
   )
 
@@ -152,7 +154,7 @@ if (!file.exists("../data/processed/learning_rate_df.csv")) {
     col_types = cols(
       .default = col_double(),
       experiment = col_factor(),
-      test_type = col_factor()
+      phase = col_factor()
     )
   )
 }
@@ -248,12 +250,13 @@ Note: Blues = Acceleration Perturbations
 # rest of the exps
 data_per_group <- omnibus_df %>%
   filter(exp_label == "original_exps" | exp_label == "curved_path") %>%
-  group_by(experiment, test_type, trial_num) %>%
+  group_by(experiment, phase, test_type, trial_num, learning_and_decay_curves) %>%
   summarise(
     mean_deviation = mean(throw_deviation),
     ci_deviation = vector_confint(throw_deviation),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(experiment, trial_num)
 
 # set up plot
 p <- data_per_group %>%
@@ -301,7 +304,7 @@ Note: Blues = Acceleration Perturbations
 # filter out just the trials of interest
 data_per_group <- data_per_group %>%
   filter(
-    test_type != "other"
+    phase != "other", learning_and_decay_curves == 1
   )
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
@@ -335,9 +338,9 @@ p <- data_per_group %>%
   scale_fill_manual(values = pallete_list)
 
 # add confidence intervals and data points
-for (unique_test_type in unique(data_per_group$test_type)) {
+for (uniq_phase in unique(data_per_group$phase)) {
   # get the data for this block
-  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
 
   p <- p + geom_ribbon(
     data = to_plot_data,
@@ -362,12 +365,13 @@ Note: Blues = Acceleration Perturbations
 # rest of the exps
 data_per_group <- omnibus_df %>%
   filter(exp_label == "original_exps" | exp_label == "curved_path") %>%
-  group_by(experiment, test_type, trial_num) %>%
+  group_by(experiment, phase, test_type, trial_num, learning_and_decay_curves) %>%
   summarise(
     mean_deviation = mean(norm_throw_deviation),
     ci_deviation = vector_confint(norm_throw_deviation),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(experiment, trial_num)
 
 # set up plot
 p <- data_per_group %>%
@@ -423,7 +427,7 @@ Note: Blues = Acceleration Perturbations
 # filter out just the trials of interest
 data_per_group <- data_per_group %>%
   filter(
-    test_type != "other"
+    phase != "other", learning_and_decay_curves == 1
   )
 
 # add a dummy column with repeating sequence
@@ -458,9 +462,9 @@ p <- data_per_group %>%
   scale_fill_manual(values = pallete_list)
 
 # add confidence intervals and data points
-for (unique_test_type in unique(data_per_group$test_type)) {
+for (uniq_phase in unique(data_per_group$phase)) {
   # get the data for this block
-  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
 
   p <- p + geom_ribbon(
     data = to_plot_data,
@@ -474,8 +478,6 @@ for (unique_test_type in unique(data_per_group$test_type)) {
   )
 }
 
-
-
 ggplotly(p)
 ```
 
@@ -485,11 +487,11 @@ ggplotly(p)
 data_per_ppt <- init_learning_rates %>%
   filter(
     experiment != "a_ball_roll_animate_surface",
-    test_type != "transfer_init"
+    phase != "transfer"
   )
 
 data_per_group <- data_per_ppt %>%
-  group_by(experiment, test_type) %>%
+  group_by(experiment, phase) %>%
   summarise(
     mean_learning_rate = mean(exp_fit_lambda),
     ci_learning_rate = vector_confint(exp_fit_lambda),
@@ -508,7 +510,7 @@ p <- data_per_group %>%
     y = "Learning Rate"
   ) +
   facet_wrap(
-    ~test_type
+    ~phase
   ) + # remove all x axis labels
   theme(
   axis.text.x = element_blank()
@@ -549,7 +551,7 @@ p <- data_per_group %>%
     x = NULL,
     y = "High Point"
   ) +
-  facet_wrap(~test_type) + # remove all x axis labels
+  facet_wrap(~phase) + # remove all x axis labels
   theme(axis.text.x = element_blank()) +
   # for the colour legend, only show the first 7
   # Note this doesn't work for the plotly plot
@@ -591,7 +593,7 @@ p <- data_per_ppt %>%
     x = "Learning Rate",
     y = "High Point"
   ) +
-  facet_wrap(~test_type) +
+  facet_wrap(~phase) +
   geom_point() +
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
@@ -606,11 +608,11 @@ ggplotly(p)
 data_per_ppt <- init_learning_rates_3par %>%
   filter(
     experiment != "a_ball_roll_animate_surface",
-    test_type == "transfer_init"
+    phase == "transfer"
   )
 
 data_per_group <- data_per_ppt %>%
-  group_by(experiment, test_type) %>%
+  group_by(experiment, phase) %>%
   summarise(
     mean_learning_rate = mean(exp_fit_lambda),
     ci_learning_rate = vector_confint(exp_fit_lambda),
@@ -630,7 +632,7 @@ p <- data_per_group %>%
     x = NULL,
     y = "Learning Rate"
   ) +
-  facet_wrap(~test_type) +
+  facet_wrap(~phase) +
   # remove all x axis labels
   theme(axis.text.x = element_blank()) +
   # for the colour legend, only show the first 7
@@ -668,7 +670,7 @@ p <- data_per_group %>%
     x = NULL,
     y = "High Point (Asymptotes)"
   ) +
-  facet_wrap(~test_type) +
+  facet_wrap(~phase) +
   # remove all x axis labels
   theme(axis.text.x = element_blank()) +
   # for the colour legend, only show the first 7
@@ -707,7 +709,7 @@ p <- data_per_group %>%
     x = NULL,
     y = "Low Point (Starts)"
   ) +
-  facet_wrap(~test_type)
+  facet_wrap(~phase)
 
 # remove all x axis labels
 p <- p + theme(axis.text.x = element_blank())
@@ -749,7 +751,7 @@ When transferring, what happens?
 # 3d plot of learning rates, high points, and low points
 # filter out just the washout trials for now
 data_per_ppt <- init_learning_rates_3par %>%
-  filter(test_type == "transfer_init")
+  filter(phase == "transfer")
 
 p <- plot_ly(type = "scatter3d", mode = "markers")
 
@@ -791,7 +793,7 @@ p
 
 # rest of the exps
 data_per_ppt <- omnibus_df %>%
-  filter(experiment == "accel_uncued", test_type == "washout_init")
+  filter(experiment == "accel_uncued", phase == "washout")
 
 # set up plot
 p <- data_per_ppt %>%
@@ -836,12 +838,13 @@ Note: Blues = Acceleration Perturbations
 # original experiments only
 data_per_group <- omnibus_df %>%
   filter(exp_label == "original_exps" | exp_label == "curved_path") %>%
-  group_by(experiment, test_type, trial_num) %>%
+  group_by(experiment, phase, test_type, trial_num, learning_and_decay_curves) %>%
   summarise(
     mean_deviation = mean(error_size),
     ci_deviation = vector_confint(error_size),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(experiment, trial_num)
 
 # set up plot
 p <- data_per_group %>%
@@ -900,7 +903,7 @@ Note: Blues = Acceleration Perturbations
 # filter out just the trials of interest
 data_per_group <- data_per_group %>%
   filter(
-    test_type != "other"
+    phase != "other", learning_and_decay_curves == 1
   )
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
@@ -935,9 +938,9 @@ p <- p +
   )
 
 # add confidence intervals and data points
-for (unique_test_type in unique(data_per_group$test_type)) {
+for (uniq_phase in unique(data_per_group$phase)) {
   # get the data for this block
-  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
 
   p <- p + geom_ribbon(
     data = to_plot_data,
@@ -1171,7 +1174,7 @@ if (!file.exists("../data/processed/learning_rate_df_anim.csv")) {
         ppid = first(ppid),
         experiment = first(experiment),
         exponentialFit = exponentialFit(throw_deviation,
-          mode = "washout_init"
+          mode = "washout"
         )
       )
   }

@@ -12,7 +12,10 @@ output:
 
 
 ```{r setup, include=FALSE, warning=FALSE}
-rm(list = ls()) # clean environment
+# clean environment
+rm(list = ls())
+# set seed
+set.seed(1234)
 
 source("../src/helper_funcs.R")
 source("../scripts/figure_funcs.R")
@@ -77,6 +80,8 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     surface_tilt = col_factor(),
     target = col_factor(),
     test_type = col_factor(),
+    phase = col_factor(),
+    learning_and_decay_curves = col_factor(),
     prior_anim = col_factor(),
     baseline_block = col_factor(),
     task_type = col_factor(),
@@ -92,7 +97,7 @@ init_learning_rates <- read_csv(
   col_types = cols(
     .default = col_double(),
     experiment = col_factor(),
-    test_type = col_factor()
+    phase = col_factor()
   )
 )
 
@@ -101,7 +106,7 @@ init_learning_rates_3par <- read_csv(
   col_types = cols(
     .default = col_double(),
     experiment = col_factor(),
-    test_type = col_factor()
+    phase = col_factor()
   )
 )
 
@@ -141,13 +146,14 @@ num_exps <- 4
 
 # make per_group df
 data_per_group <- data_per_ppt %>%
-  group_by(experiment, block_num, test_type, trial_num) %>%
+  group_by(experiment, phase, test_type, block_num, trial_num, learning_and_decay_curves) %>%
   summarise(
     mean_deviation = mean(throw_deviation),
     ci_deviation = vector_confint(throw_deviation),
     n = n(),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(experiment, trial_num)
 
 # set up plot
 p <- data_per_group %>%
@@ -163,7 +169,7 @@ p <- data_per_group %>%
   theme(
     legend.position = "none",
     text = element_text(size = text_size)
-    ) +
+  ) +
   labs(
     x = "Trial",
     y = "Throw Angle (°)"
@@ -239,8 +245,9 @@ p
 # filter out just the trials of interest
 data_per_group <- data_per_group %>%
   filter(
-    test_type != "other"
+    phase != "other", learning_and_decay_curves == 1
   )
+
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
 data_per_group <- data_per_group %>%
@@ -256,9 +263,10 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none",
-        text = element_text(size = text_size)
-        ) +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
   labs(
     x = "Phases",
     y = "Throw Angle (°)"
@@ -285,9 +293,9 @@ p <- data_per_group %>%
   )
 
 # add confidence intervals and data points
-for (unique_test_type in unique(data_per_group$test_type)) {
+for (uniq_phase in unique(data_per_group$phase)) {
   # get the data for this block
-  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
 
   p <- p + geom_ribbon(
     data = to_plot_data,
@@ -327,14 +335,16 @@ data_per_group <- omnibus_df %>%
       "rot30_uncued", "rot30_cued_tilt"
     ),
     trial_num >= 214,
-    str_detect(test_type, "training")
+    phase == "training",
+    learning_and_decay_curves == 1
   ) %>%
-  group_by(experiment, test_type, trial_num) %>%
+  group_by(experiment, phase, test_type, trial_num) %>%
   summarise(
     mean_deviation = mean(norm_throw_deviation),
     ci_deviation = vector_confint(norm_throw_deviation),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(experiment, trial_num)
 
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
@@ -351,9 +361,10 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none",
-        text = element_text(size = text_size)
-        ) +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
   labs(
     x = "Trial",
     y = "Normalized Throw Angle"
@@ -376,13 +387,13 @@ p <- data_per_group %>%
   ) +
   scale_x_continuous(
     breaks = c(0, 40, 80, 120),
-    labels = c(0, 1, 2, 3)
+    labels = c(0, 40, 80, 120)
   )
 
 # add confidence intervals and data points
-for (unique_test_type in unique(data_per_group$test_type)) {
+for (uniq_phase in unique(data_per_group$phase)) {
   # get the data for this block
-  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
 
   p <- p + geom_ribbon(
     data = to_plot_data,
@@ -416,7 +427,7 @@ data_per_ppt <- init_learning_rates %>%
       "accel_uncued", "accel_cued_tilt",
       "rot30_uncued", "rot30_cued_tilt"
     ),
-    test_type == "training_init"
+    phase == "training"
   ) %>%
   mutate(
     pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
@@ -425,7 +436,7 @@ data_per_ppt <- init_learning_rates %>%
   )
 
 data_per_group <- data_per_ppt %>%
-  group_by(experiment, test_type) %>%
+  group_by(experiment, phase) %>%
   summarise(
     mean_learning_rate = mean(exp_fit_lambda),
     ci_learning_rate = vector_confint(exp_fit_lambda),
@@ -505,8 +516,10 @@ p
 We are using the afex package for the aov_car function. This allows for used mixed (within/between) factor ANOVAs.
 Here is an example formula for using aov_car: dependent_variable ~ between_factor1 * between_factor2 + Error(subject/(within_factor * within_factor))
 ```{r}
-(temp_ANOVA <- aov_car(exp_fit_lambda ~ pert * cue + Error(ppid), 
-                       data_per_ppt))
+(temp_ANOVA <- aov_car(
+  exp_fit_lambda ~ pert * cue + Error(ppid),
+  data_per_ppt
+))
 
 print("Bayes anovas and bayes factors:")
 print("")
@@ -518,7 +531,7 @@ print(bayesfactor_inclusion(bf))
 
 ```{r}
 # posthoc tests
-(m1 <- emmeans(temp_ANOVA, ~ cue))
+(m1 <- emmeans(temp_ANOVA, ~cue))
 print("Pairwise comparisons:")
 print(pairs(m1))
 ```
@@ -591,8 +604,10 @@ if (save_plots) {
 p
 ```
 ```{r}
-(temp_ANOVA <- aov_car(exp_fit_N0 ~ pert * cue + Error(ppid), 
-                       data_per_ppt))
+(temp_ANOVA <- aov_car(
+  exp_fit_N0 ~ pert * cue + Error(ppid),
+  data_per_ppt
+))
 
 print("Bayes anovas and bayes factors:")
 print("")
@@ -619,14 +634,16 @@ data_per_group <- omnibus_df %>%
       "rot30_uncued", "rot30_cued_tilt"
     ),
     trial_num >= 214,
-    str_detect(test_type, "washout")
+    phase == "washout",
+    learning_and_decay_curves == 1
   ) %>%
-  group_by(experiment, test_type, trial_num) %>%
+  group_by(experiment, phase, trial_num) %>%
   summarise(
     mean_deviation = mean(norm_throw_deviation),
     ci_deviation = vector_confint(norm_throw_deviation),
     .groups = "drop"
-  )
+  ) %>%
+  arrange(experiment, trial_num)
 
 # add a dummy column with repeating sequence
 # NOTE: this can't be combined with above since we are using nrow
@@ -643,12 +660,13 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none",
-        text = element_text(size = text_size)
-        ) +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
   labs(
     x = "Trial",
-    y = "Normalized\nThrow Angle"
+    y = "Normalized Throw Angle"
   ) +
   # add horizontal lines
   geom_hline(
@@ -668,13 +686,13 @@ p <- data_per_group %>%
   ) +
   scale_x_continuous(
     breaks = c(0, 40, 80, 120),
-    labels = c(0, 1, 2, 3)
+    labels = c(0, 40, 80, 120)
   )
 
 # add confidence intervals and data points
-for (unique_test_type in unique(data_per_group$test_type)) {
+for (uniq_phase in unique(data_per_group$phase)) {
   # get the data for this block
-  to_plot_data <- filter(data_per_group, test_type == unique_test_type)
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
 
   p <- p + geom_ribbon(
     data = to_plot_data,
@@ -708,7 +726,7 @@ data_per_ppt <- init_learning_rates %>%
       "accel_uncued", "accel_cued_tilt",
       "rot30_uncued", "rot30_cued_tilt"
     ),
-    test_type == "washout_init"
+    phase == "washout"
   ) %>%
   mutate(
     pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
@@ -717,7 +735,7 @@ data_per_ppt <- init_learning_rates %>%
   )
 
 data_per_group <- data_per_ppt %>%
-  group_by(experiment, test_type) %>%
+  group_by(experiment, phase) %>%
   summarise(
     mean_learning_rate = mean(exp_fit_lambda),
     ci_learning_rate = vector_confint(exp_fit_lambda),
@@ -794,8 +812,10 @@ p
 ```
 
 ```{r}
-(temp_ANOVA <- aov_car(exp_fit_lambda ~ pert * cue + Error(ppid), 
-                       data_per_ppt))
+(temp_ANOVA <- aov_car(
+  exp_fit_lambda ~ pert * cue + Error(ppid),
+  data_per_ppt
+))
 
 print("Bayes anovas and bayes factors:")
 print("")
@@ -842,9 +862,9 @@ p <- data_per_group %>%
   ) +
   # y-axis scale
   scale_y_continuous(
-    limits = c(-0.1, 1.6),
-    breaks = c(0, 0.25, 0.5, 0.75, 1, 1.25, 1.5),
-    labels = c(0, 0.25, 0.5, 0.75, 1, 1.25, 1.5)
+    limits = c(-0.5, 1.6),
+    breaks = c(-0.5, 0, 0.5, 1, 1.5),
+    labels = c(-0.5, 0, 0.5, 1, 1.5)
   ) +
   # remove all x axis labels
   theme(
@@ -881,8 +901,10 @@ p
 ```
 
 ```{r}
-(temp_ANOVA <- aov_car(exp_fit_N0 ~ pert * cue + Error(ppid), 
-                       data_per_ppt))
+(temp_ANOVA <- aov_car(
+  exp_fit_N0 ~ pert * cue + Error(ppid),
+  data_per_ppt
+))
 
 print("Bayes anovas and bayes factors:")
 print("")
@@ -899,7 +921,7 @@ print("Pairwise comparisons:")
 print(pairs(m1))
 ```
 
-
+# Figure 3: Success manifolds and Curved Path Experiment
 ```{r}
 
 ```

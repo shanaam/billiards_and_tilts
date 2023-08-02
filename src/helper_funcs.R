@@ -149,10 +149,10 @@ exponentialModel <- function(par, timepoints, mode, setN0=NULL) {
     par['N0'] = setN0
   }
   
-  if (mode == 'training_init' | mode == 'transfer_init') {
+  if (mode == 'training' | mode == 'transfer') {
     output = par['N0'] - ( par['N0'] * (1-par['lambda'])^timepoints )
   }
-  if (mode == 'washout_init') {
+  if (mode == 'washout') {
     output = par['N0'] * (1-par['lambda'])^timepoints
   }
   
@@ -182,7 +182,7 @@ exponentialModel <- function(par, timepoints, mode, setN0=NULL) {
 #' @examples
 #' # write example?
 #' @export
-exponentialMSE <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode='training_init', setN0=NULL) {
+exponentialMSE <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode='training', setN0=NULL) {
   
   MSE <- mean((exponentialModel(par, timepoints, mode=mode, setN0=setN0)$output - signal)^2, na.rm=TRUE)
   
@@ -217,7 +217,7 @@ exponentialMSE <- function(par, signal, timepoints=c(0:(length(signal)-1)), mode
 #' # write example!
 #' @import optimx
 #' @export
-exponentialFit <- function(signal, timepoints=length(signal), mode='training_init', gridpoints=11, gridfits=10, setN0=NULL) {
+exponentialFit <- function(signal, timepoints=length(signal), mode='training', gridpoints=11, gridfits=10, setN0=NULL) {
   
   # set the search grid:
   parvals <- seq(1/gridpoints/2,1-(1/gridpoints/2),1/gridpoints)
@@ -284,10 +284,10 @@ exponentialModel_3par <- function(par, timepoints, mode, setN0=NULL) {
     par['N0'] = setN0
   }
   
-  if (mode == 'training_init' | mode == 'transfer_init') {
+  if (mode == 'training' | mode == 'transfer') {
     output = (par['N0'] - ( par['N0'] * (1-par['lambda'])^timepoints)) +  par['displace']
   }
-  if (mode == 'washout_init') {
+  if (mode == 'washout') {
     output = (par['N0'] * (1 - par['lambda'])^timepoints) + par['displace'] # check the original exponentialModel
   }
   
