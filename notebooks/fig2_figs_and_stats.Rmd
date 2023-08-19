@@ -55,7 +55,7 @@ pallete_list <- c(
 )
 
 num_exps <- 7
-save_plots <- TRUE
+save_plots <- FALSE
 text_size <- 9
 ```
 
@@ -89,7 +89,8 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     anim_type = col_factor()
   )
 ) %>% # filter out practice blocks
-  filter(block_num > 4)
+  filter(block_num > 4,
+         !(ppid %in% c(2, 81, 82, 83)))
 
 # load exponential decay fits
 init_learning_rates <- read_csv(
@@ -232,7 +233,7 @@ p <- data_per_group %>%
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_all.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_all.pdf", device = "pdf",
     height = 2, width = 3.75
   )
 }
@@ -313,7 +314,7 @@ for (uniq_phase in unique(data_per_group$phase)) {
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_phases.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_phases.pdf", device = "pdf",
     height = 2, width = 3.75
   )
 }
@@ -411,7 +412,7 @@ for (uniq_phase in unique(data_per_group$phase)) {
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_normalized_training.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_training.pdf", device = "pdf",
     height = 2, width = 2.5
   )
 }
@@ -504,7 +505,7 @@ p <- data_per_group %>%
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_training_learning_rates.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_training_learning_rates.pdf", device = "pdf",
     height = 2, width = 2.5
   )
 }
@@ -596,7 +597,7 @@ p <- data_per_group %>%
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_training_asymptotes.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_training_asymptotes.pdf", device = "pdf",
     height = 2, width = 2.5
   )
 }
@@ -710,7 +711,7 @@ for (uniq_phase in unique(data_per_group$phase)) {
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_normalized_washout.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_washout.pdf", device = "pdf",
     height = 2, width = 2.5
   )
 }
@@ -803,7 +804,7 @@ p <- data_per_group %>%
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_washout_learning_rates.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_washout_learning_rates.pdf", device = "pdf",
     height = 2, width = 2.5
   )
 }
@@ -892,7 +893,7 @@ p <- data_per_group %>%
 if (save_plots) {
   ggsave(
     p,
-    filename = "../data/figs/paper_figs/initial_exps_washout_starts.pdf", device = "pdf",
+    filename = "../data/figs/paper_figs/fig2_initial_exps_washout_starts.pdf", device = "pdf",
     height = 2, width = 2.5
   )
 }
@@ -919,10 +920,5 @@ print(bayesfactor_inclusion(bf))
 (m1 <- emmeans(temp_ANOVA, ~ cue * pert))
 print("Pairwise comparisons:")
 print(pairs(m1))
-```
-
-# Figure 3: Success manifolds and Curved Path Experiment
-```{r}
-
 ```
 

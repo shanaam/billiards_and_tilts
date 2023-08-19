@@ -52,8 +52,8 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
       surface_tilt = per_block_list_surface_tilt,
       surface = per_block_surface_materials
     ) %>%
-    mutate(error_size = error_size * 100) %>% # convert error_size to cm
-    filter(error_size < 70) %>% # filter out errors > 70 cm
+    mutate(raw_error_size = raw_error_size * 100) %>% # convert error_size to cm
+    filter(raw_error_size < 70) %>% # filter out errors > 70 cm
     mutate(task_type = recode( # recode tasktype
       type,
       "aligned" = "roll_to_target",
@@ -62,6 +62,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
 
 
   ### Baseline correction ###
+  ## For throw_deviation ##
   # make a baseline_df
   bl_df_summary <- omnibus_df %>%
     filter(baseline_block == TRUE) %>%
@@ -85,6 +86,34 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
   omnibus_df <- omnibus_df %>%
     mutate(
       throw_deviation = raw_throw_deviation - bl_deviation
+    )
+  
+  
+  
+  ## For error_size##
+  # make baseline_df
+  bl_df_summary <- omnibus_df %>%
+    filter(baseline_block == TRUE) %>%
+    group_by(ppid, task_type, hand, prior_anim, target) %>%
+    summarise(
+      bl_error = median(raw_error_size, na.rm = TRUE)
+    )
+  
+  # convert to data.table
+  bl_df_summary <- as.data.table(bl_df_summary)
+  omnibus_df <- as.data.table(omnibus_df)
+  
+  # non equi join omnibus_df and bl_df_summary
+  omnibus_df <- omnibus_df[
+    bl_df_summary,
+    on = .(ppid, task_type, hand, prior_anim, target),
+    nomatch = 0
+  ]
+  
+  # subtract the baseline from the raw_throw_deviation
+  omnibus_df <- omnibus_df %>%
+    mutate(
+      error_size = raw_error_size - bl_error
     )
 
   ### Normalization ###
@@ -140,10 +169,11 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       -"session_num", -"indicator_angle", -"show_path", -"tilt_after_fire",
       -"flick_multiplier", -"step_timestamp"
     ) %>% # add a column for the throw_deviation
-    mutate(raw_throw_deviation = atan2_2d(
+    mutate(
+      raw_throw_deviation = atan2_2d(
       flick_velocity_x, flick_velocity_z,
-      per_block_targetListToUse
-    ))
+      per_block_targetListToUse),
+      raw_error_size = error_size)
 
   ## ORIGIAL EXPS ##
   if (trial_df$experiment[1] %in% original_exps) {

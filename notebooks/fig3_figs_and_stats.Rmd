@@ -1,0 +1,825 @@
+---
+title: "Billiards and Tilts Analysis Notebook"
+author: "Shanaathanan Modchalingam"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    code_folding: hide
+---
+
+
+```{r setup, include=FALSE, warning=FALSE}
+# clean environment
+rm(list = ls())
+# set seed
+set.seed(1234)
+
+source("../src/helper_funcs.R")
+source("../scripts/figure_funcs.R")
+library(data.table)
+library(tidyverse)
+library(ggbeeswarm)
+
+# for statistics
+library(ez) # for ANOVAs
+library(afex) # for ANOVAs
+library(emmeans)
+library(effectsize) # for eta-squared
+library(BayesFactor)
+library(bayestestR)
+
+library(furrr)
+plan(multisession)
+
+options(dplyr.summarise.inform = FALSE)
+
+# vars
+omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
+
+# convert the above into a list
+pallete_list <- c(
+  "rot30_cued_tilt" = "#d40000",
+  "rot30_uncued" = "#f9982c",
+  "accel_cued_tilt" = "#07509b",
+  "accel_uncued" = "#5fb696",
+  "curved_cued_tilt" = "#2b5747",
+  "rot15_cued_tilt" = "#770202",
+  "rot15_uncued" = "#a76315",
+  "none" = "#f9982c",
+  "half_anim" = "#5fb696",
+  "full_anim" = "#07509b",
+  "wait" = "#a76315"
+)
+
+num_exps <- 7
+save_plots <- TRUE
+text_size <- 9
+```
+
+```{r}
+library(plotly)
+```
+
+
+## Load all of the throw data
+```{r}
+# Note: this notebook right now REQUIRES that the analysis notebook be run to
+# make the fits, or that the data folder contains the fits
+
+# load omnibus dataframe
+omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
+  delim = ",",
+  col_types = cols(
+    .default = col_double(),
+    type = col_factor(),
+    ppid = col_factor(),
+    exp_label = col_factor(),
+    experiment = col_factor(),
+    hand = col_factor(),
+    camera_tilt = col_factor(),
+    surface_tilt = col_factor(),
+    target = col_factor(),
+    test_type = col_factor(),
+    phase = col_factor(),
+    learning_and_decay_curves = col_factor(),
+    prior_anim = col_factor(),
+    baseline_block = col_factor(),
+    task_type = col_factor(),
+    surface = col_factor(),
+    anim_type = col_factor()
+  )
+) %>% # filter out practice blocks
+  filter(block_num > 4,
+         !(ppid %in% c(2, 81, 82, 83)))
+
+# load exponential decay fits
+init_learning_rates <- read_csv(
+  "../data/processed/learning_rate_df.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor(),
+    phase = col_factor()
+  )
+)
+
+init_learning_rates_3par <- read_csv(
+  "../data/processed/learning_rate_df_3par.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor(),
+    phase = col_factor()
+  )
+)
+
+anim_learning_rates <- read_csv(
+  "../data/processed/learning_rate_df_anim.csv",
+  col_types = cols(
+    .default = col_double(),
+    ppid = col_factor(),
+    experiment = col_factor()
+  )
+)
+```
+
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# use flick_direction_x, y, and z to get magnitude of flick direction
+omnibus_df$magnitude <- sqrt(omnibus_df$flick_direction_x^2 + omnibus_df$flick_direction_y^2 + omnibus_df$flick_direction_z^2)
+```
+
+# Success Manifolds - Accelerated Groups
+
+For these plots, we will use data only from the training phase (transfer too?). Baseline phases and washout phases are the same for all groups. 
+```{r}
+data_per_trial <- omnibus_df %>%
+  filter(
+    phase == "training",
+    experiment %in% c("accel_uncued", "accel_cued_tilt")
+  )
+
+# Note for figure: facet by target
+
+# set up the plot
+p <- data_per_trial %>%
+  ggplot(aes(
+    x = raw_throw_deviation,
+    y = magnitude,
+    color = error_size
+  )) +
+  # vertical line at 0
+  # geom_vline(xintercept = 0, linetype = "dashed", color = "#CCCCCC") +
+  # colour palette
+  scale_colour_gradient(
+    low = "#7eaee2", high = "#001a35",
+    limits = c(5, 70), na.value = "white" # Note: max error value is ~68, target radius is 5
+  ) +
+  # add data points
+  geom_point(size = 1.3, alpha = 0.7, stroke = 0) +
+  # facet
+  facet_wrap(~ fct_relevel(target, "96", "92", "88", "84"), nrow = 1) +
+  # theme
+  theme_classic() +
+  labs(x = NULL, 
+       y = "Throw Speed (m/s)") +
+  theme(
+    panel.background = element_rect(
+      fill = "#000000",
+      colour = "#000000"
+    ),
+    legend.position = "none",
+    text = element_text(size = text_size),
+    strip.background = element_blank(), # facet labels
+    strip.text.x = element_blank()
+  ) +
+  scale_y_continuous(limits = c(1.7, 2.2)) +
+  scale_x_continuous(limits = c(-60, 10))
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_manifolds_accel.pdf", device = "pdf",
+    height = 1.7, width = 7.5
+  )
+}
+
+# ggplotly(p)
+p
+```
+
+```{r}
+data_per_trial <- omnibus_df %>%
+  filter(
+    phase == "training",
+    experiment %in% c("rot30_uncued", "rot30_cued_tilt")
+  )
+
+# Note for figure: facet by target
+
+# set up the plot
+p <- data_per_trial %>%
+  ggplot(aes(
+    x = raw_throw_deviation,
+    y = magnitude,
+    color = error_size
+    # shape = ppid
+  )) +
+  # vertical line at 0
+  geom_vline(xintercept = -30, linetype = "dashed", color = "#CCCCCC") +
+  # colour palette
+  scale_colour_gradient(
+    low = "#7eaee2", high = "#001a35",
+    limits = c(5, 70), na.value = "white" # Note: max error value is ~68, target radius is 5
+  ) +
+  # add data points
+  geom_point(size = 1.3, alpha = 0.7, stroke = 0) +
+  # facet
+  facet_wrap(~ fct_relevel(target, "96", "92", "88", "84"), nrow = 1) +
+  # theme
+  theme_classic() +
+  labs(x = NULL, 
+       y = "Throw Speed (m/s)") +
+  theme(
+    panel.background = element_rect(
+      fill = "#000000",
+      colour = "#000000"
+    ),
+    legend.position = "none",
+    text = element_text(size = text_size),
+    strip.background = element_blank(), # facet labels
+    strip.text.x = element_blank()
+  ) +
+  scale_y_continuous(limits = c(1.7, 2.2)) +
+  scale_x_continuous(limits = c(-60, 10))
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_manifolds_rotated.pdf", device = "pdf",
+    height = 1.7, width = 7.5
+  )
+}
+
+# ggplotly(p)
+p
+```
+
+```{r}
+data_per_trial <- omnibus_df %>%
+  filter(
+    phase == "training",
+    experiment %in% c("curved_cued_tilt")
+  )
+
+# Note for figure: facet by target
+
+# set up the plot
+p <- data_per_trial %>%
+  ggplot(aes(
+    x = raw_throw_deviation,
+    y = magnitude,
+    color = error_size
+    # shape = ppid
+  )) +
+  # vertical line at 30
+  geom_vline(xintercept = -30, linetype = "dashed", color = "#CCCCCC") +
+  # colour palette
+  scale_colour_gradient(
+    low = "#7eaee2", high = "#001a35",
+    limits = c(5, 70), na.value = "white" # Note: max error value is ~68, target radius is 5
+  ) +
+  # add data points
+  geom_point(size = 1.3, alpha = 0.7, stroke = 0) +
+  # facet
+  facet_wrap(~ fct_relevel(target, "96", "92", "88", "84"), nrow = 1) +
+  # theme
+  theme_classic() +
+  labs(x = NULL, 
+       y = "Throw Speed (m/s)") +
+  theme(
+    panel.background = element_rect(
+      fill = "#000000",
+      colour = "#000000"
+    ),
+    legend.position = "none",
+    text = element_text(size = text_size),
+    strip.background = element_blank(), # facet labels
+    strip.text.x = element_blank()
+  ) +
+  scale_y_continuous(limits = c(1.7, 2.2)) +
+  scale_x_continuous(limits = c(-60, 10))
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_manifolds_curved.pdf", device = "pdf",
+    height = 1.7, width = 7.5
+  )
+}
+
+# ggplotly(p)
+p
+```
+
+
+```{r}
+num_exps <- 3
+```
+
+## Normalized Training Phases
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(
+    experiment %in% c(
+      "accel_cued_tilt", 
+      "rot30_cued_tilt", 
+      "curved_cued_tilt"
+    ),
+    trial_num >= 214,
+    phase == "training",
+    learning_and_decay_curves == 1
+  ) %>%
+  group_by(experiment, phase, test_type, trial_num) %>%
+  summarise(
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
+    .groups = "drop"
+  ) %>%
+  arrange(experiment, trial_num)
+
+# add a dummy column with repeating sequence
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
+    length.out = nrow(data_per_group)
+  ))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
+  labs(
+    x = "Trial",
+    y = "Normalized Throw Angle"
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5)
+  ) +
+  scale_x_continuous(
+    breaks = c(0, 40, 80, 120),
+    labels = c(0, 40, 80, 120)
+  )
+
+# add confidence intervals and data points
+for (uniq_phase in unique(data_per_group$phase)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_exps_normalized_training.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+## Training - Fit Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- init_learning_rates %>%
+  filter(
+    experiment %in% c(
+      "accel_cued_tilt", 
+      "rot30_cued_tilt", 
+      "curved_cued_tilt"
+    ),
+    phase == "training"
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2]),
+    ppid = factor(ppid)
+  )
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment, phase) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Learning Rate"
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # colour legend settings
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_training_learning_rates.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+
+## Training - Fit High Points (Asymptotes)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Asymptote of Adaptation"
+  ) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(0.5, 1.75),
+    breaks = c(0.5, 0.75, 1, 1.25, 1.5),
+    labels = c(0.5, 0.75, 1, 1.25, 1.5)
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_training_asymptotes.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+## Normalized Washout Phases
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(
+    experiment %in% c(
+      "accel_cued_tilt", 
+      "rot30_cued_tilt", 
+      "curved_cued_tilt"
+    ),
+    trial_num >= 214,
+    phase == "washout",
+    learning_and_decay_curves == 1
+  ) %>%
+  group_by(experiment, phase, trial_num) %>%
+  summarise(
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
+    .groups = "drop"
+  ) %>%
+  arrange(experiment, trial_num)
+
+# add a dummy column with repeating sequence
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:(nrow(data_per_group) / num_exps),
+    length.out = nrow(data_per_group)
+  ))
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
+  labs(
+    x = "Trial",
+    y = "Normalized Throw Angle"
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5)
+  ) +
+  scale_x_continuous(
+    breaks = c(0, 40, 80, 120),
+    labels = c(0, 40, 80, 120)
+  )
+
+# add confidence intervals and data points
+for (uniq_phase in unique(data_per_group$phase)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, phase == uniq_phase)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_normalized_washout.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+## Washout - Fit Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- init_learning_rates %>%
+  filter(
+    experiment %in% c(
+      "accel_cued_tilt", 
+      "rot30_cued_tilt", 
+      "curved_cued_tilt"
+    ),
+    phase == "washout"
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2]),
+    ppid = factor(ppid)
+  )
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment, phase) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Decay Rate"
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # colour legend settings
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_washout_learning_rates.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+## Washout - Fit High Points (Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Start Point of Decay"
+  ) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(-0.5, 1.6),
+    breaks = c(-0.5, 0, 0.5, 1, 1.5),
+    labels = c(-0.5, 0, 0.5, 1, 1.5)
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_washout_starts.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
