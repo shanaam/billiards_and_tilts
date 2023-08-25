@@ -1,0 +1,483 @@
+---
+title: "Billiards and Tilts Analysis Notebook"
+author: "Shanaathanan Modchalingam"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    code_folding: hide
+---
+
+
+```{r setup, include=FALSE, warning=FALSE}
+# clean environment
+rm(list = ls())
+# set seed
+set.seed(1234)
+
+source("../src/helper_funcs.R")
+source("../scripts/figure_funcs.R")
+library(data.table)
+library(tidyverse)
+library(ggbeeswarm)
+
+# for statistics
+library(ez) # for ANOVAs
+library(afex) # for ANOVAs
+library(emmeans)
+library(effectsize) # for eta-squared
+library(BayesFactor)
+library(bayestestR)
+
+library(furrr)
+plan(multisession)
+
+options(dplyr.summarise.inform = FALSE)
+
+# vars
+omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
+
+# convert the above into a list
+pallete_list <- c(
+  "rot30_cued_tilt" = "#d40000",
+  "rot30_uncued" = "#f9982c",
+  "accel_cued_tilt" = "#07509b",
+  "accel_uncued" = "#5fb696",
+  "curved_cued_tilt" = "#2b5747",
+  "rot15_cued_tilt" = "#770202",
+  "rot15_uncued" = "#a76315",
+  "none" = "#f9982c",
+  "half_anim" = "#999999",
+  "full_anim" = "#000000",
+  "wait" = "#a76315"
+)
+
+num_exps <- 7
+save_plots <- TRUE
+text_size <- 9
+```
+
+```{r}
+library(plotly)
+```
+
+
+## Load all of the throw data
+```{r}
+# Note: this notebook right now REQUIRES that the analysis notebook be run to
+# make the fits, or that the data folder contains the fits
+
+# load omnibus dataframe
+omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
+  delim = ",",
+  col_types = cols(
+    .default = col_double(),
+    type = col_factor(),
+    ppid = col_factor(),
+    exp_label = col_factor(),
+    experiment = col_factor(),
+    hand = col_factor(),
+    camera_tilt = col_factor(),
+    surface_tilt = col_factor(),
+    target = col_factor(),
+    test_type = col_factor(),
+    phase = col_factor(),
+    learning_and_decay_curves = col_factor(),
+    prior_anim = col_factor(),
+    baseline_block = col_factor(),
+    task_type = col_factor(),
+    surface = col_factor(),
+    anim_type = col_factor()
+  )
+) %>% # filter out practice blocks
+  filter(block_num > 4,
+         !(ppid %in% c(2, 81, 82, 83)))
+
+# load omnibus dataframe
+omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
+  delim = ",",
+  col_types = cols(
+    .default = col_double(),
+    type = col_factor(),
+    ppid = col_factor(),
+    exp_label = col_factor(),
+    experiment = col_factor(),
+    hand = col_factor(),
+    camera_tilt = col_factor(),
+    surface_tilt = col_factor(),
+    target = col_factor(),
+    test_type = col_factor(),
+    phase = col_factor(),
+    learning_and_decay_curves = col_factor(),
+    prior_anim = col_factor(),
+    baseline_block = col_factor(),
+    task_type = col_factor(),
+    surface = col_factor(),
+    anim_type = col_factor()
+  )
+) %>% # filter out practice blocks
+  filter(block_num > 4,
+         !(ppid %in% c(2, 81, 82, 83)))
+
+# load exponential decay fits
+init_learning_rates <- read_csv(
+  "../data/processed/learning_rate_df.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor(),
+    phase = col_factor()
+    )
+  ) %>%
+  mutate(experiment = factor(
+    experiment, 
+    levels = c("accel_cued_tilt", "accel_uncued", 
+      "rot30_cued_tilt", "rot30_uncued",
+      "rot15_cued_tilt", "rot15_uncued",
+      "curved_cued_tilt",
+      "a_ball_roll_animate_surface")
+    )
+  )
+
+init_learning_rates_3par <- read_csv(
+  "../data/processed/learning_rate_df_3par.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor(),
+    phase = col_factor()
+    )
+  ) %>%
+  mutate(experiment = factor(
+    experiment, 
+    levels = c("accel_cued_tilt", "accel_uncued", 
+      "rot30_cued_tilt", "rot30_uncued",
+      "rot15_cued_tilt", "rot15_uncued",
+      "curved_cued_tilt",
+      "a_ball_roll_animate_surface")
+    )
+  )
+
+anim_learning_rates <- read_csv(
+  "../data/processed/learning_rate_df_anim.csv",
+  col_types = cols(
+    .default = col_double(),
+    ppid = col_factor(),
+    experiment = col_factor()
+    )
+  ) %>%
+  mutate(experiment = factor(
+    experiment, 
+    levels = c("rot30_cued_tilt", "rot30_uncued",
+      "half_anim", "full_anim")
+    )
+  )
+```
+
+## Washout trials after half VS full animations
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# first, isolate the data
+data_per_ppt_anim <- omnibus_df %>%
+  filter(
+    exp_label == "animate_surface",
+    baseline_block == FALSE,
+    test_type == "washout_anim"
+  ) %>%
+  group_by(ppid, prior_anim, trial_num_in_block) %>%
+  summarise(
+    ppt_median_deviation = median(throw_deviation),
+    .groups = "drop"
+  ) %>% # prior_anim rename to experiment (to match the other comparisons)
+  mutate(
+    experiment = prior_anim,
+    throw_deviation = ppt_median_deviation
+  ) %>%
+  select(-prior_anim, -ppt_median_deviation)
+
+data_per_group <- data_per_ppt_anim %>%
+  group_by(experiment, trial_num_in_block) %>%
+  summarise(
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation),
+    n = n()
+  )
+
+# add washout_init from the 30-degree rotation condition
+data_per_ppt_30 <- omnibus_df %>%
+  filter(
+    experiment %in% c("rot30_cued_tilt", "rot30_uncued"),
+    test_type == "washout_init",
+    trial_num_in_block <= 8
+  ) %>%
+  select(ppid, trial_num_in_block, experiment, throw_deviation)
+
+data_per_group_30 <- data_per_ppt_30 %>%
+  group_by(experiment, trial_num_in_block) %>%
+  summarise(
+    mean_deviation = mean(throw_deviation),
+    ci_deviation = vector_confint(throw_deviation),
+    n = n(),
+    .groups = "drop"
+  )
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = trial_num_in_block, y = mean_deviation,
+      colour = experiment, fill = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Trial Number in Block",
+    y = "Throw Angle (°)"
+  ) +
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  # add data 
+  geom_line() +
+  geom_ribbon(
+    data = data_per_group_30,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  geom_line(
+    data = data_per_group_30,
+    aes(
+      colour = experiment
+    )
+  ) +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig5_anim_washout.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+## Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- anim_learning_rates
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Learning Rate"
+  ) + 
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point() +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  )
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig5_anim_washout_learning_rates.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+
+p
+```
+### Paired t-tests comparing animations
+
+```{r}
+# summary statistics
+data_per_ppt <- data_per_ppt %>%
+  filter(experiment %in% c("half_anim", "full_anim"))
+
+data_per_ppt %>% 
+  group_by(experiment) %>% 
+  summarise(
+    mean = mean(exp_fit_lambda),
+    ci = vector_confint(exp_fit_lambda),
+    n = n()
+  )
+```
+```{r}
+# Comparison stats
+# paired t-test
+group1 <- data_per_ppt %>% 
+  filter(experiment == "half_anim") %>% 
+  pull(exp_fit_lambda)
+
+group2 <- data_per_ppt %>%
+  filter(experiment == "full_anim") %>% 
+  pull(exp_fit_lambda)
+
+diffs <- group2 - group1
+t.test(diffs)
+
+# Effect size
+cohen.d(group1, group2)
+
+# Bayes factor
+ttestBF(x = diffs)
+```
+
+## High Points (Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Start Point"
+  ) + 
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none") + 
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point() +
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, -30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(10, -10, -20), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(10, 0, -10, -20, -30),
+    labels = c(10, 0, -10, -20, -30)
+  )
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig5_anim_washout_starts.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+### Paired t-tests comparing animations
+
+```{r}
+# summary statistics
+data_per_ppt <- data_per_ppt %>%
+  filter(experiment %in% c("half_anim", "full_anim"))
+
+data_per_ppt %>% 
+  group_by(experiment) %>% 
+  summarise(
+    mean = mean(exp_fit_N0),
+    ci = vector_confint(exp_fit_N0),
+    n = n()
+  )
+```
+```{r}
+# Comparison stats
+# paired t-test
+group1 <- data_per_ppt %>% 
+  filter(experiment == "half_anim") %>% 
+  pull(exp_fit_N0)
+
+group2 <- data_per_ppt %>%
+  filter(experiment == "full_anim") %>% 
+  pull(exp_fit_N0)
+
+diffs <- group2 - group1
+t.test(diffs)
+
+# Effect size
+cohen.d(group1, group2)
+
+# Bayes factor
+ttestBF(x = diffs)
+```

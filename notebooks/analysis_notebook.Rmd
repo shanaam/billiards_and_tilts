@@ -1333,23 +1333,3 @@ ggplotly(p)
 ```{r, include=FALSE}
 ## EMPTY
 ```
-
-
-# Deprecated (Don't Run)
-
-## Success manifolds
-### Without any tilts
-```{r, fig.width=9, fig.height=20}
-plot_success_manifold_no_tilt()
-```
-
-### With tilt present
-```{r, fig.width=9, fig.height=20}
-plot_success_manifold_tilt()
-```
-
-
-```{r, include=FALSE}
-NULL
-```
-
