@@ -8,28 +8,32 @@ plan(multisession) # for parallel processing
 
 # load omnibus dataframe
 omnibus_df <- read_delim("data/processed/omnibus/omnibus_raw.csv",
-                         delim = ",",
-                         col_types = cols(
-                           .default = col_double(),
-                           type = col_factor(),
-                           ppid = col_factor(),
-                           exp_label = col_factor(),
-                           experiment = col_factor(),
-                           hand = col_factor(),
-                           camera_tilt = col_factor(),
-                           surface_tilt = col_factor(),
-                           target = col_factor(),
-                           test_type = col_factor(),
-                           phase = col_factor(),
-                           learning_and_decay_curves = col_factor(),
-                           prior_anim = col_factor(),
-                           baseline_block = col_factor(),
-                           task_type = col_factor(),
-                           surface = col_factor(),
-                           anim_type = col_factor()
-                         )) %>% # filter out practice blocks
-  filter(block_num > 4,
-         !(ppid %in% c(2, 81, 82, 83)))
+  delim = ",",
+  col_types = cols(
+    .default = col_double(),
+    type = col_factor(),
+    ppid = col_factor(),
+    exp_label = col_factor(),
+    experiment = col_factor(),
+    hand = col_factor(),
+    camera_tilt = col_factor(),
+    surface_tilt = col_factor(),
+    target = col_factor(),
+    test_type = col_factor(),
+    phase = col_factor(),
+    learning_and_decay_curves = col_factor(),
+    prior_anim = col_factor(),
+    baseline_block = col_logical(),
+    alt_washout_block = col_logical(),
+    task_type = col_factor(),
+    surface = col_factor(),
+    anim_type = col_factor()
+  )
+) %>% # filter out practice blocks
+  filter(
+    block_num > 4,
+    !(ppid %in% c(2, 81, 82, 83))
+  )
 
 omnibus_df$error_size <- omnibus_df$error_size / 10
 
@@ -43,10 +47,10 @@ apply_exponential_fit <- function(df) {
       phase = first(phase),
       exponentialFit = exponentialFit(
         error_size,
-        mode = 'washout' # this is a special case where all curves are decaying
+        mode = "washout" # this is a special case where all curves are decaying
       )
     )
-  }
+}
 
 fits_df <- omnibus_df %>%
   filter(learning_and_decay_curves == 1) %>%
@@ -56,10 +60,10 @@ fits_df <- omnibus_df %>%
   bind_rows() %>%
   unnest(cols = c("exponentialFit"))
 
-print("done 2 param error fits")
-print(Sys.time())
-
 write_csv(fits_df, "data/processed/exp_fits_errors_df.csv")
+
+print("done 2 param decay function fits")
+print(Sys.time())
 
 # repeat using exponentialFit_3par
 apply_exponential_fit_3par <- function(df) {
@@ -70,10 +74,10 @@ apply_exponential_fit_3par <- function(df) {
       phase = first(phase),
       exponentialFit = exponentialFit_3par(
         error_size,
-        mode = 'washout' # this is a special case where all curves are decaying
+        mode = "washout" # this is a special case where all curves are decaying
       )
     )
-  }
+}
 
 fits_df_3par <- omnibus_df %>%
   filter(learning_and_decay_curves == 1) %>%
@@ -191,8 +195,9 @@ apply_exponential_fit <- function(df) {
     summarise(
       ppid = first(ppid),
       experiment = first(experiment),
-      exponentialFit = exponentialFit(throw_deviation,
-                                      mode = "washout"
+      exponentialFit = exponentialFit(
+        throw_deviation,
+        mode = "washout"
       )
     )
 }
@@ -204,10 +209,41 @@ anim_learning_rates <- anim_comparison_df %>%
   bind_rows() %>%
   unnest(cols = c("exponentialFit"))
 
-print("done 2 param animation fits")
-print(Sys.time())
-
 write_csv(
   anim_learning_rates,
   "data/processed/learning_rate_df_anim.csv"
 )
+
+print("done 2 param animation fits")
+print(Sys.time())
+
+# repeat for only alt_washout blocks
+alt_washout_data <- omnibus_df %>%
+  filter(
+    alt_washout_block == TRUE
+  )
+
+# 2 parameter error fits
+apply_exponential_fit <- function(df) {
+  df %>%
+    summarise(
+      ppid = first(ppid),
+      experiment = first(experiment),
+      exponentialFit = exponentialFit(
+        throw_deviation,
+        mode = "washout" # this is a special case where all curves are decaying
+      )
+    )
+}
+
+fits_df <- alt_washout_data %>%
+  group_by(ppid, experiment) %>%
+  group_split() %>%
+  future_map(apply_exponential_fit) %>%
+  bind_rows() %>%
+  unnest(cols = c("exponentialFit"))
+
+write_csv(fits_df, "data/processed/exp_fits_alt_washout_curves.csv")
+
+print("done 2 param alt washout decay fits")
+print(Sys.time())

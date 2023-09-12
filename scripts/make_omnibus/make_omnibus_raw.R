@@ -87,9 +87,9 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     mutate(
       throw_deviation = raw_throw_deviation - bl_deviation
     )
-  
-  
-  
+
+
+
   ## For error_size##
   # make baseline_df
   bl_df_summary <- omnibus_df %>%
@@ -98,18 +98,18 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     summarise(
       bl_error = median(raw_error_size, na.rm = TRUE)
     )
-  
+
   # convert to data.table
   bl_df_summary <- as.data.table(bl_df_summary)
   omnibus_df <- as.data.table(omnibus_df)
-  
+
   # non equi join omnibus_df and bl_df_summary
   omnibus_df <- omnibus_df[
     bl_df_summary,
     on = .(ppid, task_type, hand, prior_anim, target),
     nomatch = 0
   ]
-  
+
   # subtract the baseline from the raw_throw_deviation
   omnibus_df <- omnibus_df %>%
     mutate(
@@ -119,9 +119,11 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
   ### Normalization ###
   # make max_learning_df
   max_learning_df_summary <- omnibus_df %>%
-    filter(learning_and_decay_curves == 1,
-           phase == "training",
-           trial_num_in_block %in% (33:40)) %>%
+    filter(
+      learning_and_decay_curves == 1,
+      phase == "training",
+      trial_num_in_block %in% (33:40)
+    ) %>%
     group_by(ppid) %>%
     summarise(
       max_learning = median(throw_deviation, na.rm = TRUE)
@@ -171,9 +173,11 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
     ) %>% # add a column for the throw_deviation
     mutate(
       raw_throw_deviation = atan2_2d(
-      flick_velocity_x, flick_velocity_z,
-      per_block_targetListToUse),
-      raw_error_size = error_size)
+        flick_velocity_x, flick_velocity_z,
+        per_block_targetListToUse
+      ),
+      raw_error_size = error_size
+    )
 
   ## ORIGIAL EXPS ##
   if (trial_df$experiment[1] %in% original_exps) {
@@ -187,7 +191,7 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       mutate(
         anim_type = "none", # add anim_type and exp_label columns
         exp_label = "original_exps"
-      ) %>% 
+      ) %>%
       mutate(test_type = case_when( # add test_type column
         (trial_num_in_block %in% (1:8) & block_num == 11) ~ "training_init",
         (trial_num_in_block %in% (73:80) & block_num == 11) ~ "training_end",
@@ -206,8 +210,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       # add training and decay column
       mutate(learning_and_decay_curves = case_when(
         ((trial_num_in_block %in% (1:40) & block_num == 11) |
-           (trial_num_in_block %in% (1:40) & block_num == 12) |
-           (trial_num_in_block %in% (1:40) & block_num == 14)) ~ 1,
+          (trial_num_in_block %in% (1:40) & block_num == 12) |
+          (trial_num_in_block %in% (1:40) & block_num == 14)) ~ 1,
         TRUE ~ 0
       )) %>%
       mutate(prior_anim = "none") %>%
@@ -288,8 +292,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       # add learning and decay column
       mutate(learning_and_decay_curves = case_when(
         ((trial_num_in_block %in% (1:40) & block_num == 11) |
-           (trial_num_in_block %in% (1:40) & block_num == 12) |
-           (trial_num_in_block %in% (1:40) & block_num == 14)) ~ 1,
+          (trial_num_in_block %in% (1:40) & block_num == 12) |
+          (trial_num_in_block %in% (1:40) & block_num == 14)) ~ 1,
         TRUE ~ 0
       )) %>%
       mutate(prior_anim = "none") %>%
@@ -300,6 +304,35 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       mutate(experiment = "curved_cued_tilt")
   }
 
+  # if trial_df$experiment[1] contains "cued_tilt"
+  if (grepl("cued_tilt", trial_df$experiment[1])) {
+    # add a column for alt_washout_block
+    trial_df <- trial_df %>%
+      mutate(
+        alt_washout_block = case_when(
+          ((block_num == 12 & trial_num_in_block != 40) | 
+            (block_num == 11 & trial_num_in_block == 80))
+             ~ TRUE,
+          TRUE ~ FALSE
+        )
+      )
+  } else if (grepl("uncued", trial_df$experiment[1])) {
+    trial_df <- trial_df %>%
+      mutate(
+        alt_washout_block = case_when(
+          (block_num == 12) ~ TRUE,
+          TRUE ~ FALSE
+        )
+      )
+  } else {
+    trial_df <- trial_df %>%
+      mutate(
+        alt_washout_block = case_when(
+          block_num %in% c(11, 20, 28, 36, 44, 48) ~ TRUE,
+          TRUE ~ FALSE
+        )
+      )
+  }
   ### remove things final
 
   # # make a per trial summary and join it to the trial_df
@@ -324,15 +357,15 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 
 # #####  Test #####
 # directory_index = 120
-# 
+#
 # ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
 # # make a list of length length(ppt_list)
 # trial_df_list <- vector("list", length(ppt_list))
-# 
+#
 # for (i in 1:length(ppt_list)) {
 #   trial_df_list[[i]] <- make_one_ppt_file(i, ppt_list)
 # }
-# 
+#
 # omnibus_df <- do.call(rbind, trial_df_list)
 
 ##### Do #####
