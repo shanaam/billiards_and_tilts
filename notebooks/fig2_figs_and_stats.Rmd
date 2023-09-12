@@ -42,14 +42,15 @@ omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
 # convert the above into a list
 pallete_list <- c(
   "rot30_cued_tilt" = "#d40000",
-  "rot30_uncued" = "#f9982c",
+  "rot30_uncued" = "#f76a6a",
   "accel_cued_tilt" = "#07509b",
-  "accel_uncued" = "#5fb696",
+  "accel_uncued" = "#58a9fc",
   "curved_cued_tilt" = "#2b5747",
-  "rot15_cued_tilt" = "#770202",
-  "rot15_uncued" = "#a76315",
-  "none" = "#f9982c",
-  "half_anim" = "#5fb696",
+  "curved_uncued" = "#61c29e",
+  "rot15_cued_tilt" = "#fc8705",
+  "rot15_uncued" = "#f7a952",
+  "none" = "#770202",
+  "half_anim" = "#61c29e",
   "full_anim" = "#07509b",
   "wait" = "#a76315"
 )
@@ -83,7 +84,8 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     phase = col_factor(),
     learning_and_decay_curves = col_factor(),
     prior_anim = col_factor(),
-    baseline_block = col_factor(),
+    baseline_block = col_logical(),
+    alt_washout_block = col_logical(),
     task_type = col_factor(),
     surface = col_factor(),
     anim_type = col_factor()
@@ -141,6 +143,23 @@ anim_learning_rates <- read_csv(
     experiment, 
     levels = c("rot30_cued_tilt", "rot30_uncued",
       "half_anim", "full_anim")
+    )
+  )
+
+alt_washout_rates <- read_csv(
+  "../data/processed/exp_fits_alt_washout_curves.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor()
+    )
+  ) %>%
+  mutate(experiment = factor(
+    experiment, 
+    levels = c("accel_cued_tilt", "accel_uncued", 
+      "rot30_cued_tilt", "rot30_uncued",
+      "rot15_cued_tilt", "rot15_uncued",
+      "curved_cued_tilt",
+      "a_ball_roll_animate_surface")
     )
   )
 ```
@@ -1030,3 +1049,351 @@ print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")),
 
 ```
 
+# Alternate Washout Phases 
+These include the last trial of the Training phase for all Cued conditions.
+
+## Normalized Washout Phases
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+# rest of the exps
+data_per_group <- omnibus_df %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    ),
+    trial_num >= 214,
+    alt_washout_block == TRUE,
+  ) %>%
+  arrange(experiment, ppid, trial_num)  %>% 
+  group_by(experiment, trial_num) %>%
+  summarise(
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
+    .groups = "drop"
+  ) 
+
+# NOTE: this can't be combined with above since we are using nrow
+data_per_group <- data_per_group %>%
+  mutate(dummy_x = rep(1:40,
+    length.out = nrow(data_per_group)
+  ))
+
+# add a dummy column with repeating sequence
+
+
+# set up plot
+p <- data_per_group %>%
+  ggplot(
+    aes(
+      x = dummy_x, y = mean_deviation, colour = experiment
+    )
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
+  labs(
+    x = "Trial",
+    y = "Normalized Throw Angle"
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5)
+  ) +
+  scale_x_continuous(
+    breaks = c(0, 40, 80, 120),
+    labels = c(0, 40, 80, 120)
+  )
+
+# add confidence intervals and data points
+for (uniq_exp in unique(data_per_group$experiment)) {
+  # get the data for this block
+  to_plot_data <- filter(data_per_group, experiment == uniq_exp)
+
+  p <- p + geom_ribbon(
+    data = to_plot_data,
+    aes(
+      ymin = mean_deviation - ci_deviation,
+      ymax = mean_deviation + ci_deviation,
+      fill = experiment
+    ), colour = NA, alpha = 0.3
+  ) + geom_line(
+    data = to_plot_data
+  )
+}
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_alt_washout.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+# ggplotly(p)
+```
+
+## Washout - Fit Learning Rates
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+data_per_ppt <- alt_washout_rates %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    )
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2]),
+    ppid = factor(ppid)
+  )
+
+data_per_group <- data_per_ppt %>%
+  group_by(experiment) %>%
+  summarise(
+    mean_learning_rate = mean(exp_fit_lambda),
+    ci_learning_rate = vector_confint(exp_fit_lambda),
+    mean_high = mean(exp_fit_N0),
+    ci_high = vector_confint(exp_fit_N0),
+    .groups = "drop"
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_learning_rate, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Decay Rate"
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # colour legend settings
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig2_initial_exps_alt_washout_learning_rates.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+```{r}
+(temp_ANOVA <- aov_car(
+  exp_fit_lambda ~ pert * cue + Error(ppid),
+  data_per_ppt,
+  include_aov = TRUE
+))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(exp_fit_lambda ~ pert * cue, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+Pairwise comparisons:
+```{r}
+# posthoc tests
+# (m1 <- emmeans(temp_ANOVA, ~pert))
+# print("Pairwise comparisons:")
+# print(summary(pairs(m1), adjust = "tukey")) # Note: default multiplicity correction for pairs summary is Tukey HSD
+
+# Note: default multiplicity correction for pairs summary is Tukey HSD
+print("-------------------------- EMMs cue --------------------------")
+emms_obj <- emmeans(temp_ANOVA, "cue")
+print(pwpm(emms_obj, diffs = FALSE))
+
+# Effect size is Cohen's D
+eff_size(emms_obj, edf = temp_ANOVA$anova_table$`den Df`[1], sigma = sigma(temp_ANOVA$lm))
+
+print("-------------------------- EMMs perts --------------------------")
+emms_obj <- emmeans(temp_ANOVA, "pert")
+print(pwpm(emms_obj, diffs = FALSE))
+
+# Effect size is Cohen's D
+eff_size(emms_obj, edf = temp_ANOVA$anova_table$`den Df`[1], sigma = sigma(temp_ANOVA$lm))
+
+print("----------------------------- Full Tukey HSD -----------------------------")
+print(TukeyHSD(temp_ANOVA$aov))
+
+print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")), 
+         edf = temp_ANOVA$anova_table$`den Df`[1], 
+         sigma = sigma(temp_ANOVA$lm)))
+
+```
+
+## Washout - Fit High Points (Starts)
+```{r, fig.width=10, fig.height=6, out.width="100%"}
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_high, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Start Point of Decay"
+  ) +
+  # for the colour legend, only show the first 7
+  # Note this doesn't work for the plotly plot
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(-0.5, 1.6),
+    breaks = c(-0.5, 0, 0.5, 1, 1.5),
+    labels = c(-0.5, 0, 0.5, 1, 1.5)
+  ) +
+  # remove all x axis labels
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_N0
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_high - ci_high,
+    ymax = mean_high + ci_high
+  ), alpha = 0.5, lwd = 2) +
+  geom_point()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig2_initial_exps_alt_washout_starts.pdf", device = "pdf",
+    height = 2, width = 2.5
+  )
+}
+
+p
+```
+
+```{r}
+(temp_ANOVA <- aov_car(
+  exp_fit_N0 ~ pert * cue + Error(ppid),
+  data_per_ppt,
+  include_aov = TRUE
+))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(exp_fit_N0 ~ pert * cue, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+Pairwise comparisons:
+```{r}
+# posthoc tests
+# (m1 <- emmeans(temp_ANOVA, ~pert))
+# print("Pairwise comparisons:")
+# print(summary(pairs(m1), adjust = "tukey")) # Note: default multiplicity correction for pairs summary is Tukey HSD
+
+# Note: default multiplicity correction for pairs summary is Tukey HSD
+print("-------------------------- EMMs cue --------------------------")
+emms_obj <- emmeans(temp_ANOVA, "cue")
+print(pwpm(emms_obj, diffs = FALSE))
+
+# Effect size is Cohen's D
+eff_size(emms_obj, edf = temp_ANOVA$anova_table$`den Df`[1], sigma = sigma(temp_ANOVA$lm))
+
+print("-------------------------- EMMs perts --------------------------")
+emms_obj <- emmeans(temp_ANOVA, "pert")
+print(pwpm(emms_obj, diffs = FALSE))
+
+# Effect size is Cohen's D
+eff_size(emms_obj, edf = temp_ANOVA$anova_table$`den Df`[1], sigma = sigma(temp_ANOVA$lm))
+
+print("----------------------------- Full Tukey HSD -----------------------------")
+print(TukeyHSD(temp_ANOVA$aov))
+
+print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")), 
+         edf = temp_ANOVA$anova_table$`den Df`[1], 
+         sigma = sigma(temp_ANOVA$lm)))
+
+```

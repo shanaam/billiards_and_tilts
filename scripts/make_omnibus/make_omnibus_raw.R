@@ -264,7 +264,7 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         block_num %in% (5:11) ~ TRUE,
         TRUE ~ FALSE
       ))
-  } else if (trial_df$experiment[1] == "a_curved_cued_tilt") {
+  } else if (trial_df$experiment[1] %in% c("a_curved_cued_tilt", "a_curved_uncued")) {
     ## CURVED PATH EXP ##
     ### remove and add things ###
     trial_df <- trial_df %>%
@@ -301,7 +301,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         block_num %in% (6:8) ~ TRUE,
         TRUE ~ FALSE
       )) %>%
-      mutate(experiment = "curved_cued_tilt")
+      # remove the first 2 letters from the experiment column
+      mutate(experiment = substr(experiment, 3, nchar(experiment)))
   }
 
   # if trial_df$experiment[1] contains "cued_tilt"
@@ -310,9 +311,9 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
     trial_df <- trial_df %>%
       mutate(
         alt_washout_block = case_when(
-          ((block_num == 12 & trial_num_in_block != 40) | 
+          ((block_num == 12 & trial_num_in_block != 40) |
             (block_num == 11 & trial_num_in_block == 80))
-             ~ TRUE,
+          ~ TRUE,
           TRUE ~ FALSE
         )
       )

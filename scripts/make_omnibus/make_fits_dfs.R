@@ -230,7 +230,7 @@ apply_exponential_fit <- function(df) {
       ppid = first(ppid),
       experiment = first(experiment),
       exponentialFit = exponentialFit(
-        throw_deviation,
+        norm_throw_deviation,
         mode = "washout" # this is a special case where all curves are decaying
       )
     )
