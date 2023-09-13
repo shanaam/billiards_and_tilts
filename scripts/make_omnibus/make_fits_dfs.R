@@ -1,4 +1,7 @@
 # Make Exponential fit dfs for error
+
+rm(list = ls())
+
 source("src/helper_funcs.R")
 library(data.table)
 library(tidyverse)
@@ -208,7 +211,8 @@ anim_learning_rates <- anim_comparison_df %>%
   group_split() %>%
   future_map(apply_exponential_fit) %>%
   bind_rows() %>%
-  unnest(cols = c("exponentialFit"))
+  unnest(cols = c("exponentialFit")) %>%
+  mutate(phase = "washout")
 
 write_csv(
   anim_learning_rates,
@@ -242,7 +246,8 @@ fits_df <- alt_washout_data %>%
   group_split() %>%
   future_map(apply_exponential_fit) %>%
   bind_rows() %>%
-  unnest(cols = c("exponentialFit"))
+  unnest(cols = c("exponentialFit")) %>%
+  mutate(phase = "washout")
 
 write_csv(fits_df, "data/processed/exp_fits_alt_washout_curves.csv")
 
@@ -273,7 +278,8 @@ fits_df <- alt_all_washout_data %>%
   group_split() %>%
   future_map(apply_exponential_fit) %>%
   bind_rows() %>%
-  unnest(cols = c("exponentialFit"))
+  unnest(cols = c("exponentialFit")) %>%
+  mutate(phase = "washout")
 
 write_csv(fits_df, "data/processed/exp_fits_alt_all_washout_curves.csv")
 

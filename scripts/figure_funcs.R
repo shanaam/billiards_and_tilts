@@ -12,20 +12,31 @@ library(ggnewscale)
 # palette for plotting:
 # https://venngage-wordpress.s3.amazonaws.com/uploads/2019/08/color-blind-friendly-palette-9.png # nolint
 
-# note: R has no has tables, but environments can work like one
-# (they are hashed under the hood)
+#### Figure Settings ####
 
-# convert the above into a list
-pallete_list <- c("rot30_cued_tilt" = "#d40000",
-                  "rot30_uncued" = "#f9982c",
-                  "accel_cued_tilt" = "#07509b",
-                  "accel_uncued" = "#5fb696",
-                  "rot15_cued_tilt" = "#740000",
-                  "rot15_uncued" = "#99982c",
-                  "none" = "#f9982c",
-                  "half_anim" = "#5fb696",
-                  "full_anim" = "#07509b",
-                  "wait" = "#99982c")
+pallete_list <- c(
+  "rot30_cued_tilt" = "#d40000",
+  "rot30_uncued" = "#f76a6a",
+  "accel_cued_tilt" = "#07509b",
+  "accel_uncued" = "#58a9fc",
+  "curved_cued_tilt" = "#2b5747",
+  "curved_uncued" = "#61c29e",
+  "rot15_cued_tilt" = "#fc8705",
+  "rot15_uncued" = "#f7a952",
+  "none" = "#770202",
+  "half_anim" = "#61c29e",
+  "full_anim" = "#07509b",
+  "wait" = "#a76315"
+)
+
+save_plots <- TRUE
+text_size <- 9
+curve_x_breaks <- c(0, 10, 20, 30, 40)
+per_group_x_labs <- "Group"
+per_group_fig_width <- 1.5
+
+
+#### Paths ####
 
 omnibus_path <- "data/processed/omnibus/omnibus_raw.csv"
 with_path_omnibus <- "data/processed/omnibus/omnibus_throws_with_path.csv"

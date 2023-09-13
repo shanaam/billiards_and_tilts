@@ -39,25 +39,7 @@ options(dplyr.summarise.inform = FALSE)
 # vars
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
 
-# convert the above into a list
-pallete_list <- c(
-  "rot30_cued_tilt" = "#d40000",
-  "rot30_uncued" = "#f76a6a",
-  "accel_cued_tilt" = "#07509b",
-  "accel_uncued" = "#58a9fc",
-  "curved_cued_tilt" = "#2b5747",
-  "curved_uncued" = "#61c29e",
-  "rot15_cued_tilt" = "#fc8705",
-  "rot15_uncued" = "#f7a952",
-  "none" = "#770202",
-  "half_anim" = "#61c29e",
-  "full_anim" = "#07509b",
-  "wait" = "#a76315"
-)
-
 num_exps <- 7
-save_plots <- FALSE
-text_size <- 9
 ```
 
 ```{r}
@@ -89,6 +71,7 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
     prior_anim = col_factor(),
     baseline_block = col_logical(),
     alt_washout_block = col_logical(),
+    alt_all_washout_block = col_logical(),
     task_type = col_factor(),
     surface = col_factor(),
     anim_type = col_factor()
@@ -112,9 +95,9 @@ init_learning_rates <- read_csv(
     experiment,
     levels = c(
       "accel_cued_tilt", "accel_uncued",
+      "curved_cued_tilt", "curved_uncued",
       "rot30_cued_tilt", "rot30_uncued",
       "rot15_cued_tilt", "rot15_uncued",
-      "curved_cued_tilt", "curved_uncued",
       "a_ball_roll_animate_surface"
     )
   ))
@@ -131,9 +114,9 @@ init_learning_rates_3par <- read_csv(
     experiment,
     levels = c(
       "accel_cued_tilt", "accel_uncued",
+      "curved_cued_tilt", "curved_uncued",
       "rot30_cued_tilt", "rot30_uncued",
       "rot15_cued_tilt", "rot15_uncued",
-      "curved_cued_tilt", "curved_uncued",
       "a_ball_roll_animate_surface"
     )
   ))
@@ -163,11 +146,13 @@ alt_washout_rates <- read_csv(
   ) %>%
   mutate(experiment = factor(
     experiment, 
-    levels = c("accel_cued_tilt", "accel_uncued", 
+    levels = c(
+      "accel_cued_tilt", "accel_uncued",
+      "curved_cued_tilt", "curved_uncued",
       "rot30_cued_tilt", "rot30_uncued",
       "rot15_cued_tilt", "rot15_uncued",
-      "curved_cued_tilt", "curved_uncued",
-      "a_ball_roll_animate_surface")
+      "a_ball_roll_animate_surface"
+      )
     )
   )
 ```
@@ -426,8 +411,8 @@ p <- data_per_group %>%
     labels = c(0, 0.5, 1, 1.5)
   ) +
   scale_x_continuous(
-    breaks = c(0, 40, 80, 120),
-    labels = c(0, 40, 80, 120)
+    breaks = curve_x_breaks,
+    labels = curve_x_breaks
   )
 
 # add confidence intervals and data points
@@ -492,14 +477,12 @@ p <- data_per_group %>%
   ) +
   theme_classic() +
   labs(
-    x = NULL,
+    x = per_group_x_labs,
     y = "Learning Rate"
   ) +
   # remove all x axis labels
   theme(
-    axis.text.x = element_blank(),
     legend.position = "none",
-    strip.text.x = element_blank(),
     text = element_text(size = text_size)
   ) +
   # colour legend settings
@@ -526,6 +509,9 @@ p <- data_per_group %>%
     breaks = c(0, 0.25, 0.5, 0.75, 1),
     labels = c(0, 0.25, 0.5, 0.75, 1)
   ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # add data points
   geom_beeswarm(
     data = data_per_ppt,
@@ -546,7 +532,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_training_learning_rates.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = per_group_fig_width
   )
 }
 
@@ -594,7 +580,7 @@ p <- data_per_group %>%
   ) +
   theme_classic() +
   labs(
-    x = NULL,
+    x = per_group_x_labs,
     y = "Asymptote of Adaptation"
   ) +
   # for the colour legend, only show the first 7
@@ -620,11 +606,12 @@ p <- data_per_group %>%
     breaks = c(0.5, 0.75, 1, 1.25, 1.5),
     labels = c(0.5, 0.75, 1, 1.25, 1.5)
   ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # remove all x axis labels
   theme(
-    axis.text.x = element_blank(),
     legend.position = "none",
-    strip.text.x = element_blank(),
     text = element_text(size = text_size)
   ) +
   # add data points
@@ -647,7 +634,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_training_asymptotes.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = per_group_fig_width
   )
 }
 
@@ -748,8 +735,8 @@ p <- data_per_group %>%
     labels = c(0, 0.5, 1, 1.5)
   ) +
   scale_x_continuous(
-    breaks = c(0, 40, 80, 120),
-    labels = c(0, 40, 80, 120)
+    breaks = curve_x_breaks,
+    labels = curve_x_breaks
   )
 
 # add confidence intervals and data points
@@ -813,14 +800,12 @@ p <- data_per_group %>%
   ) +
   theme_classic() +
   labs(
-    x = NULL,
+    x = per_group_x_labs,
     y = "Decay Rate"
   ) +
   # remove all x axis labels
   theme(
-    axis.text.x = element_blank(),
     legend.position = "none",
-    strip.text.x = element_blank(),
     text = element_text(size = text_size)
   ) +
   # colour legend settings
@@ -847,6 +832,9 @@ p <- data_per_group %>%
     breaks = c(0, 0.25, 0.5, 0.75, 1),
     labels = c(0, 0.25, 0.5, 0.75, 1)
   ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # add data points
   geom_beeswarm(
     data = data_per_ppt,
@@ -867,7 +855,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_washout_learning_rates.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = per_group_fig_width
   )
 }
 
@@ -913,7 +901,7 @@ p <- data_per_group %>%
   ) +
   theme_classic() +
   labs(
-    x = NULL,
+    x = per_group_x_labs,
     y = "Start Point of Decay"
   ) +
   # for the colour legend, only show the first 7
@@ -939,11 +927,12 @@ p <- data_per_group %>%
     breaks = c(-0.5, 0, 0.5, 1, 1.5),
     labels = c(-0.5, 0, 0.5, 1, 1.5)
   ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # remove all x axis labels
   theme(
-    axis.text.x = element_blank(),
     legend.position = "none",
-    strip.text.x = element_blank(),
     text = element_text(size = text_size)
   ) +
   # add data points
@@ -966,7 +955,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_washout_starts.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = per_group_fig_width
   )
 }
 
@@ -1014,7 +1003,7 @@ These include the last trial of the Training phase for all Cued conditions.
 data_per_group <- omnibus_df %>%
   filter(
     experiment %in% c(
-      "accel_cued_tilt", "accel_uncued",
+      # "accel_cued_tilt", "accel_uncued",
       "rot30_cued_tilt", "rot30_uncued",
       "curved_cued_tilt", "curved_uncued"
     ),
@@ -1071,8 +1060,8 @@ p <- data_per_group %>%
     labels = c(0, 0.5, 1, 1.5)
   ) +
   scale_x_continuous(
-    breaks = c(0, 40, 80, 120),
-    labels = c(0, 40, 80, 120)
+    breaks = curve_x_breaks,
+    labels = curve_x_breaks
   )
 
 # add confidence intervals and data points
@@ -1110,7 +1099,7 @@ p
 data_per_ppt <- alt_washout_rates %>%
   filter(
     experiment %in% c(
-      "accel_cued_tilt", "accel_uncued",
+      # "accel_cued_tilt", "accel_uncued",
       "rot30_cued_tilt", "rot30_uncued",
       "curved_cued_tilt", "curved_uncued"
     )
@@ -1137,14 +1126,12 @@ p <- data_per_group %>%
   ) +
   theme_classic() +
   labs(
-    x = NULL,
+    x = per_group_x_labs,
     y = "Decay Rate"
   ) +
   # remove all x axis labels
   theme(
-    axis.text.x = element_blank(),
     legend.position = "none",
-    strip.text.x = element_blank(),
     text = element_text(size = text_size)
   ) +
   # colour legend settings
@@ -1171,6 +1158,9 @@ p <- data_per_group %>%
     breaks = c(0, 0.25, 0.5, 0.75, 1),
     labels = c(0, 0.25, 0.5, 0.75, 1)
   ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # add data points
   geom_beeswarm(
     data = data_per_ppt,
@@ -1191,7 +1181,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_curved_alt_washout_learning_rates.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = per_group_fig_width
   )
 }
 
@@ -1251,7 +1241,7 @@ p <- data_per_group %>%
   ) +
   theme_classic() +
   labs(
-    x = NULL,
+    x = per_group_x_labs,
     y = "Start Point of Decay"
   ) +
   # for the colour legend, only show the first 7
@@ -1277,11 +1267,12 @@ p <- data_per_group %>%
     breaks = c(-0.5, 0, 0.5, 1, 1.5),
     labels = c(-0.5, 0, 0.5, 1, 1.5)
   ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # remove all x axis labels
   theme(
-    axis.text.x = element_blank(),
     legend.position = "none",
-    strip.text.x = element_blank(),
     text = element_text(size = text_size)
   ) +
   # add data points
@@ -1304,7 +1295,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_curved_alt_washout_starts.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = per_group_fig_width
   )
 }
 
