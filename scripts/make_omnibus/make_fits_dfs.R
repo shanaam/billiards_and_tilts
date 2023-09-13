@@ -25,6 +25,7 @@ omnibus_df <- read_delim("data/processed/omnibus/omnibus_raw.csv",
     prior_anim = col_factor(),
     baseline_block = col_logical(),
     alt_washout_block = col_logical(),
+    alt_all_washout_block = col_logical(),
     task_type = col_factor(),
     surface = col_factor(),
     anim_type = col_factor()
@@ -246,4 +247,35 @@ fits_df <- alt_washout_data %>%
 write_csv(fits_df, "data/processed/exp_fits_alt_washout_curves.csv")
 
 print("done 2 param alt washout decay fits")
+print(Sys.time())
+
+# repeat for only alt_all_washout blocks
+alt_all_washout_data <- omnibus_df %>%
+  filter(
+    alt_all_washout_block == TRUE
+  )
+
+# 2 parameter error fits
+apply_exponential_fit <- function(df) {
+  df %>%
+    summarise(
+      ppid = first(ppid),
+      experiment = first(experiment),
+      exponentialFit = exponentialFit(
+        norm_throw_deviation,
+        mode = "washout" # this is a special case where all curves are decaying
+      )
+    )
+}
+
+fits_df <- alt_all_washout_data %>%
+  group_by(ppid, experiment) %>%
+  group_split() %>%
+  future_map(apply_exponential_fit) %>%
+  bind_rows() %>%
+  unnest(cols = c("exponentialFit"))
+
+write_csv(fits_df, "data/processed/exp_fits_alt_all_washout_curves.csv")
+
+print("done 2 param alt all washout decay fits")
 print(Sys.time())

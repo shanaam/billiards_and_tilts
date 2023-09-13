@@ -151,7 +151,10 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     arrange(ppid, trial_num)
 
   # save the omnibus_df
-  fwrite(omnibus_df, file = paste(to_save_dir_path, "omnibus_raw.csv", sep = "/"))
+  fwrite(omnibus_df, file = paste(
+    to_save_dir_path, "omnibus_raw.csv",
+    sep = "/"
+  ))
 }
 
 make_one_ppt_file <- function(directory_index, ppt_list) {
@@ -246,7 +249,12 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       )) %>%
       mutate(phase = case_when(
         block_num == 14 ~ "training",
-        block_num %in% c(11, 20, 28, 36, 44, 48) ~ "washout",
+        block_num %in% c(
+          8, 11, # do we need these?
+          20, 28, 36, 44,
+          16, 24, 32, 40,
+          48
+        ) ~ "washout",
         TRUE ~ "other"
       )) %>%
       # add learning and decay column
@@ -264,7 +272,9 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         block_num %in% (5:11) ~ TRUE,
         TRUE ~ FALSE
       ))
-  } else if (trial_df$experiment[1] %in% c("a_curved_cued_tilt", "a_curved_uncued")) {
+  } else if (trial_df$experiment[1] %in% c(
+    "a_curved_cued_tilt", "a_curved_uncued"
+  )) {
     ## CURVED PATH EXP ##
     ### remove and add things ###
     trial_df <- trial_df %>%
@@ -273,7 +283,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         -starts_with("ball_pos_step1")
       ) %>% # remove columns
       filter(block_num > 4) %>% # filter out practice blocks
-      mutate(exp_label = "curved_path", anim_type = "none") %>% # add exp_label and anim_type column
+      mutate(exp_label = "curved_path", anim_type = "none") %>%
+      # add exp_label and anim_type column
       mutate(test_type = case_when( # add test_type column
         (trial_num_in_block %in% (1:8) & block_num == 11) ~ "training_init",
         (trial_num_in_block %in% (73:80) & block_num == 11) ~ "training_end",
@@ -315,6 +326,12 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
             (block_num == 11 & trial_num_in_block == 80))
           ~ TRUE,
           TRUE ~ FALSE
+        ),
+        alt_all_washout_block = case_when(
+          (block_num == 12 |
+            (block_num == 11 & trial_num_in_block == 80))
+          ~ TRUE,
+          TRUE ~ FALSE
         )
       )
   } else if (grepl("uncued", trial_df$experiment[1])) {
@@ -323,13 +340,35 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         alt_washout_block = case_when(
           (block_num == 12) ~ TRUE,
           TRUE ~ FALSE
+        ),
+        alt_all_washout_block = case_when(
+          (block_num == 12 |
+            (block_num == 11 & trial_num_in_block == 80))
+          ~ TRUE,
+          TRUE ~ FALSE
         )
       )
   } else {
     trial_df <- trial_df %>%
       mutate(
         alt_washout_block = case_when(
-          block_num %in% c(11, 20, 28, 36, 44, 48) ~ TRUE,
+          (block_num %in% c(
+            20, 28, 36, 44,
+            16, 24, 32, 40
+          ) |
+            (block_num %in% c(18, 22, 26, 30, 34, 38, 42) &
+              trial_num_in_block == 20) |
+            (block_num == 14 & trial_num_in_block == 80)) ~ TRUE,
+          TRUE ~ FALSE
+        ),
+        alt_all_washout_block = case_when(
+          (block_num %in% c(
+            20, 28, 36, 44,
+            16, 24, 32, 40
+          ) |
+            (block_num %in% c(18, 22, 26, 30, 34, 38, 42) &
+              trial_num_in_block == 20) |
+            (block_num == 14 & trial_num_in_block == 80)) ~ TRUE,
           TRUE ~ FALSE
         )
       )
