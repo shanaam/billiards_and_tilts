@@ -39,18 +39,29 @@ make_one_fit_curve <- function(i, per_phase_summary) {
   phase <- per_phase_summary$phase[i]
 
   # get the parameters for the curve
-  learning_rate <- per_phase_summary$mean_learning_rate[i]
-  high <- per_phase_summary$mean_high[i]
+  lambda <- per_phase_summary$mean_learning_rate[i]
+  N0 <- per_phase_summary$mean_high[i]
 
-  # make the curve
-  fit_curve <- tibble(
-    x = seq(1, 40, length.out = 1000),
-    y = high * exp(-learning_rate * x)
-  ) %>%
-    mutate(
-      experiment = experiment,
-      phase = phase
-    )
+  # make the fitted curve
+  if (phase == "washout") {
+    fit_curve <- tibble(
+      x = seq(1, 40, length.out = 1000),
+      y = N0 * (1 - lambda)^x
+    ) %>%
+      mutate(
+        experiment = experiment,
+        phase = phase
+      )
+  } else {
+    fit_curve <- tibble(
+      x = seq(1, 40, length.out = 1000),
+      y = N0 - (N0 * (1 - lambda)^x)
+    ) %>%
+      mutate(
+        experiment = experiment,
+        phase = phase
+      )
+  }
 
   # add the curve to the list
   return(fit_curve)
@@ -107,7 +118,7 @@ plan(multisession) # for parallel processing
 make_all_fit_curve_dfs()
 
 # #### Test ####
-# 
+#
 # alt_washout_rates <- read_csv(
 #   "data/processed/exp_fits_alt_washout_curves.csv",
 #   col_types = cols(
@@ -116,10 +127,10 @@ make_all_fit_curve_dfs()
 #     phase = col_factor()
 #   )
 # )
-# 
+#
 # fit_df <- alt_washout_rates
 # fit_curve_df <- make_fit_curve_df(fit_df)
-# 
+#
 # # plot fit_curve_list[[1]]
 # p <- ggplot(fit_curve_df, aes(x, y,
 #   colour = experiment,
@@ -131,8 +142,8 @@ make_all_fit_curve_dfs()
 #     y = "Fit Decay Curve"
 #   ) +
 #   geom_line()
-# 
+#
 # p
-# 
+#
 # library(plotly)
 # ggplotly(p)

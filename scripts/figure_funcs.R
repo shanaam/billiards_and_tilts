@@ -33,7 +33,8 @@ save_plots <- TRUE
 text_size <- 9
 curve_x_breaks <- c(0, 10, 20, 30, 40)
 per_group_x_labs <- "Group"
-per_group_fig_width <- 1.5
+per_group_fig_width <- 1.25
+curve_fig_width <- 2.5
 
 
 #### Paths ####

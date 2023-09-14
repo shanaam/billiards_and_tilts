@@ -122,7 +122,8 @@ anim_learning_rates <- read_csv(
   col_types = cols(
     .default = col_double(),
     ppid = col_factor(),
-    experiment = col_factor()
+    experiment = col_factor(),
+    phase = col_factor()
     )
   ) %>%
   mutate(experiment = factor(
@@ -136,7 +137,8 @@ alt_washout_rates <- read_csv(
   "../data/processed/exp_fits_alt_washout_curves.csv",
   col_types = cols(
     .default = col_double(),
-    experiment = col_factor()
+    experiment = col_factor(),
+    phase = col_factor()
     )
   ) %>%
   mutate(experiment = factor(
@@ -155,7 +157,28 @@ alt_all_washout_rates <- read_csv(
   "../data/processed/exp_fits_alt_all_washout_curves.csv",
   col_types = cols(
     .default = col_double(),
-    experiment = col_factor()
+    experiment = col_factor(),
+    phase = col_factor()
+    )
+  ) %>%
+  mutate(experiment = factor(
+    experiment, 
+    levels = c(
+      "accel_cued_tilt", "accel_uncued",
+      "curved_cued_tilt", "curved_uncued",
+      "rot30_cued_tilt", "rot30_uncued",
+      "rot15_cued_tilt", "rot15_uncued",
+      "a_ball_roll_animate_surface"
+      )
+    )
+  )
+
+fitted_learning_rate_df <- read_csv(
+  "../data/processed/fit_curves/fitted_learning_rate_df.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor(),
+    phase = col_factor()
     )
   ) %>%
   mutate(experiment = factor(
@@ -170,6 +193,8 @@ alt_all_washout_rates <- read_csv(
     )
   )
 ```
+
+
 # Figure 1: Setup
 # Figure 2: Learning Curves
 ## All data
@@ -465,12 +490,74 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_training.pdf", device = "pdf",
-    height = 2, width = per_group_fig_width
+    height = 2, width = curve_fig_width
   )
 }
 
 p
 ```
+## Training - Fitted Curves
+```{r}
+fitted_data <- fitted_learning_rate_df %>%
+  filter(
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    ),
+    phase == "training"
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2])
+  )
+
+p <- fitted_data %>%
+  ggplot(
+    aes(x = x, y = y, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = per_group_x_labs,
+    y = "Learning Rate"
+  ) +
+  # remove all x axis labels
+  theme(
+    # axis.text.x = element_blank(),
+    legend.position = "none",
+    # strip.text.x = element_blank(),
+    text = element_text(size = text_size)
+  ) +
+  # colour legend settings
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1))
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(
+    values = pallete_list
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.25, 0.5, 0.75), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    # limits = c(-35, 5),
+    breaks = c(0, 0.25, 0.5, 0.75, 1),
+    labels = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  scale_x_discrete(
+    # limits = c(-35, 5),
+    labels = c(0, 0, 0, 0)
+  )
+
+```
+
 
 ## Training - Fit Learning Rates
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
@@ -804,7 +891,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_washout.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = curve_fig_width
   )
 }
 
@@ -1154,7 +1241,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_alt_washout.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = curve_fig_width
   )
 }
 
@@ -1505,7 +1592,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_alt_all_washout.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = curve_fig_width
   )
 }
 
