@@ -27,7 +27,6 @@ original_exps <- c(
 )
 
 ##### All Experiments #####
-
 make_omnibus_raw_file <- function(to_load_dir_path) {
   ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
   # make a list of length length(ppt_list)
@@ -87,8 +86,6 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     mutate(
       throw_deviation = raw_throw_deviation - bl_deviation
     )
-
-
 
   ## For error_size##
   # make baseline_df
@@ -390,7 +387,6 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
   #   filter(error_size < 70) %>% # filter out errors > 70 cm
 
   # return the trial_df
-
 
   return(trial_df)
 }
