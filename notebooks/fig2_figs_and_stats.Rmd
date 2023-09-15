@@ -194,8 +194,6 @@ fitted_learning_rate_df <- read_csv(
   )
 ```
 
-
-# Figure 1: Setup
 # Figure 2: Learning Curves
 ## All data
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
@@ -485,14 +483,24 @@ for (uniq_phase in unique(data_per_group$phase)) {
   )
 }
 
-# save
-if (save_plots) {
-  ggsave(
-    p,
-    filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_training.pdf", device = "pdf",
-    height = 2, width = curve_fig_width
-  )
-}
+# fitted curves
+p <- p + geom_line(data = filter(fitted_learning_rate_df,
+                             experiment %in% c(
+                               "accel_uncued", "accel_cued_tilt",
+                               "rot30_uncued", "rot30_cued_tilt"
+                               ), 
+                             phase == "training"
+                             ),
+                   aes (x = x + 1, y = y))
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#     p,
+#     filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_training.pdf", device = "pdf",
+#     height = 2, width = curve_fig_width
+#   )
+# }
 
 p
 ```
@@ -551,10 +559,9 @@ p <- fitted_data %>%
     breaks = c(0, 0.25, 0.5, 0.75, 1),
     labels = c(0, 0.25, 0.5, 0.75, 1)
   ) +
-  scale_x_discrete(
-    # limits = c(-35, 5),
-    labels = c(0, 0, 0, 0)
-  )
+  geom_line()
+
+p
 
 ```
 
@@ -886,14 +893,24 @@ for (uniq_phase in unique(data_per_group$phase)) {
   )
 }
 
-# save
-if (save_plots) {
-  ggsave(
-    p,
-    filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_washout.pdf", device = "pdf",
-    height = 2, width = curve_fig_width
-  )
-}
+# fitted curves
+p <- p + geom_line(data = filter(fitted_learning_rate_df,
+                             experiment %in% c(
+                               "accel_uncued", "accel_cued_tilt",
+                               "rot30_uncued", "rot30_cued_tilt"
+                               ), 
+                             phase == "washout"
+                             ),
+                   aes (x = x + 1, y = y))
+
+# # save
+# if (save_plots) {
+#   ggsave(
+#     p,
+#     filename = "../data/figs/paper_figs/fig2_initial_exps_normalized_washout.pdf", device = "pdf",
+#     height = 2, width = curve_fig_width
+#   )
+# }
 
 p
 ```
