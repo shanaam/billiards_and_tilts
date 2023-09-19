@@ -45,7 +45,7 @@ make_one_fit_curve <- function(i, per_phase_summary) {
   # make the fitted curve
   if (phase == "washout") {
     fit_curve <- tibble(
-      x = seq(1, 40, length.out = 1000),
+      x = seq(0, 39, length.out = 1000),
       y = N0 * (1 - lambda)^x
     ) %>%
       mutate(
@@ -54,7 +54,7 @@ make_one_fit_curve <- function(i, per_phase_summary) {
       )
   } else {
     fit_curve <- tibble(
-      x = seq(1, 40, length.out = 1000),
+      x = seq(0, 39, length.out = 1000),
       y = N0 - (N0 * (1 - lambda)^x)
     ) %>%
       mutate(

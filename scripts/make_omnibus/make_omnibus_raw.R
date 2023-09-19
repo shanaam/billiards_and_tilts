@@ -52,7 +52,8 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
       surface = per_block_surface_materials
     ) %>%
     mutate(raw_error_size = raw_error_size * 100) %>% # convert error_size to cm
-    filter(raw_error_size < 70) %>% # filter out errors > 70 cm
+    # Outlier removal: filter out throws that never got closer than 70cm to the target
+    filter(raw_error_size < 70) %>% 
     mutate(task_type = recode( # recode tasktype
       type,
       "aligned" = "roll_to_target",
@@ -119,7 +120,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
     filter(
       learning_and_decay_curves == 1,
       phase == "training",
-      trial_num_in_block %in% (33:40)
+      trial_num_in_block %in% (21:40) # training trials used for normalization
     ) %>%
     group_by(ppid) %>%
     summarise(

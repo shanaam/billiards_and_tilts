@@ -273,7 +273,7 @@ p <- data_per_group %>%
   scale_x_continuous(
     # limits = c(0, 160),
     breaks = curve_x_breaks,
-    labels = c(0, 40, 2, 3)
+    labels = curve_x_breaks
   )
 
 # add confidence intervals and data points
@@ -640,7 +640,7 @@ p <- data_per_group %>%
   scale_x_continuous(
     # limits = c(0, 160),
     breaks = curve_x_breaks,
-    labels = c(0, 40, 2, 3)
+    labels = curve_x_breaks
   )
 
 # add confidence intervals and data points
@@ -1622,7 +1622,7 @@ data_per_group <- omnibus_df %>%
   filter(
     experiment %in% c(
       "accel_cued_tilt", "accel_uncued",
-      "rot15_cued_tilt", "rot15_uncued",
+      "rot15_cued_tilt", "rot15_uncued"
       # "rot30_cued_tilt", "rot30_uncued",
       # "curved_cued_tilt", "curved_uncued"
     ),
@@ -1719,7 +1719,7 @@ data_per_ppt <- alt_washout_rates %>%
   filter(
     experiment %in% c(
       "accel_cued_tilt", "accel_uncued",
-      "rot15_cued_tilt", "rot15_uncued",
+      "rot15_cued_tilt", "rot15_uncued"
       # "rot30_cued_tilt", "rot30_uncued",
       # "curved_cued_tilt", "curved_uncued"
     )
