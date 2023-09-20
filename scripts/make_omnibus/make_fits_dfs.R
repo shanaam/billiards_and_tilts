@@ -39,7 +39,7 @@ omnibus_df <- read_delim("data/processed/omnibus/omnibus_raw.csv",
     !(ppid %in% c(2, 81, 82, 83))
   )
 
-omnibus_df$error_size <- omnibus_df$error_size / 10
+# omnibus_df$error_size <- omnibus_df$error_size / 10
 
 print(Sys.time())
 # 2 parameter error fits
@@ -69,35 +69,35 @@ write_csv(fits_df, "data/processed/exp_fits_errors_df.csv")
 print("done 2 param decay function fits")
 print(Sys.time())
 
-# repeat using exponentialFit_3par
-apply_exponential_fit_3par <- function(df) {
-  df %>%
-    summarise(
-      ppid = first(ppid),
-      experiment = first(experiment),
-      phase = first(phase),
-      exponentialFit = exponentialFit_3par(
-        error_size,
-        mode = "washout" # this is a special case where all curves are decaying
-      )
-    )
-}
-
-fits_df_3par <- omnibus_df %>%
-  filter(learning_and_decay_curves == 1) %>%
-  group_by(ppid, experiment, phase) %>%
-  group_split() %>%
-  future_map(apply_exponential_fit_3par) %>%
-  bind_rows() %>%
-  unnest(cols = c("exponentialFit"))
-
-print("done 3 param error fits")
-print(Sys.time())
-
-write_csv(
-  fits_df_3par,
-  "data/processed/exp_fits_errors_df_3par.csv"
-)
+# # repeat using exponentialFit_3par
+# apply_exponential_fit_3par <- function(df) {
+#   df %>%
+#     summarise(
+#       ppid = first(ppid),
+#       experiment = first(experiment),
+#       phase = first(phase),
+#       exponentialFit = exponentialFit_3par(
+#         error_size,
+#         mode = "washout" # this is a special case where all curves are decaying
+#       )
+#     )
+# }
+# 
+# fits_df_3par <- omnibus_df %>%
+#   filter(learning_and_decay_curves == 1) %>%
+#   group_by(ppid, experiment, phase) %>%
+#   group_split() %>%
+#   future_map(apply_exponential_fit_3par) %>%
+#   bind_rows() %>%
+#   unnest(cols = c("exponentialFit"))
+# 
+# write_csv(
+#   fits_df_3par,
+#   "data/processed/exp_fits_errors_df_3par.csv"
+# )
+# 
+# print("done 3 param error fits")
+# print(Sys.time())
 
 ############### Throw Deviation ##############
 apply_exponential_fit <- function(df) {
@@ -121,41 +121,40 @@ init_learning_rates <- omnibus_df %>%
   bind_rows() %>%
   unnest(cols = c("exponentialFit"))
 
+write_csv(init_learning_rates, "data/processed/learning_rate_df.csv")
+
 print("done 2 param initial exp fits")
 print(Sys.time())
 
-write_csv(init_learning_rates, "data/processed/learning_rate_df.csv")
-
-
-# repeat using exponentialFit_3par
-apply_exponential_fit_3par <- function(df) {
-  df %>%
-    summarise(
-      ppid = first(ppid),
-      experiment = first(experiment),
-      phase = first(phase),
-      exponentialFit = exponentialFit_3par(
-        norm_throw_deviation,
-        mode = phase[1]
-      )
-    )
-}
-
-init_learning_rates_3par <- omnibus_df %>%
-  filter(learning_and_decay_curves == 1) %>%
-  group_by(ppid, experiment, phase) %>%
-  group_split() %>%
-  future_map(apply_exponential_fit_3par) %>%
-  bind_rows() %>%
-  unnest(cols = c("exponentialFit"))
-
-print("done 3 param initial exp fits")
-print(Sys.time())
-
-write_csv(
-  init_learning_rates_3par,
-  "data/processed/learning_rate_df_3par.csv"
-)
+# # repeat using exponentialFit_3par
+# apply_exponential_fit_3par <- function(df) {
+#   df %>%
+#     summarise(
+#       ppid = first(ppid),
+#       experiment = first(experiment),
+#       phase = first(phase),
+#       exponentialFit = exponentialFit_3par(
+#         norm_throw_deviation,
+#         mode = phase[1]
+#       )
+#     )
+# }
+# 
+# init_learning_rates_3par <- omnibus_df %>%
+#   filter(learning_and_decay_curves == 1) %>%
+#   group_by(ppid, experiment, phase) %>%
+#   group_split() %>%
+#   future_map(apply_exponential_fit_3par) %>%
+#   bind_rows() %>%
+#   unnest(cols = c("exponentialFit"))
+# 
+# write_csv(
+#   init_learning_rates_3par,
+#   "data/processed/learning_rate_df_3par.csv"
+# )
+# 
+# print("done 3 param initial exp fits")
+# print(Sys.time())
 
 ############### Animation ################
 # first, isolate the data
@@ -193,7 +192,6 @@ anim_comparison_df <- rbind(
 # remove data_per_ppt_anim and data_per_ppt_30
 rm(data_per_ppt_anim, data_per_ppt_30)
 
-print(Sys.time())
 apply_exponential_fit <- function(df) {
   df %>%
     summarise(

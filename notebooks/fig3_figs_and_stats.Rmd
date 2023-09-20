@@ -155,6 +155,25 @@ alt_washout_rates <- read_csv(
       )
     )
   )
+
+fitted_alt_washout_df <- read_csv(
+  "../data/processed/fit_curves/fitted_exp_fits_alt_washout_curves.csv",
+  col_types = cols(
+    .default = col_double(),
+    experiment = col_factor(),
+    phase = col_factor()
+  )
+) %>%
+  mutate(experiment = factor(
+    experiment,
+    levels = c(
+      "accel_cued_tilt", "accel_uncued",
+      "curved_cued_tilt", "curved_uncued",
+      "rot30_cued_tilt", "rot30_uncued",
+      "rot15_cued_tilt", "rot15_uncued",
+      "a_ball_roll_animate_surface"
+    )
+  ))
 ```
 
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
@@ -186,7 +205,7 @@ p <- data_per_trial %>%
   # colour palette
   scale_colour_gradient(
     low = "#7eaee2", high = "#001a35",
-    limits = c(5, 70), na.value = "white" # Note: max error value is ~68, target radius is 5
+    limits = c(.05, .70), na.value = "white" # Note: max error value is ~68, target radius is 5
   ) +
   # add data points
   geom_point(size = 1.3, alpha = 0.7, stroke = 0) +
@@ -246,7 +265,7 @@ p <- data_per_trial %>%
   # colour palette
   scale_colour_gradient(
     low = "#7eaee2", high = "#001a35",
-    limits = c(5, 70), na.value = "white" # Note: max error value is ~68, target radius is 5
+    limits = c(.05, .70), na.value = "white" # Note: max error value is ~68, target radius is 5
   ) +
   # add data points
   geom_point(size = 1.3, alpha = 0.7, stroke = 0) +
@@ -288,7 +307,7 @@ p
 data_per_trial <- omnibus_df %>%
   filter(
     phase == "training",
-    experiment %in% c("curved_cued_tilt")
+    experiment %in% c("curved_cued_tilt", "curved_uncued")
   )
 
 # Note for figure: facet by target
@@ -306,7 +325,7 @@ p <- data_per_trial %>%
   # colour palette
   scale_colour_gradient(
     low = "#7eaee2", high = "#001a35",
-    limits = c(5, 70), na.value = "white" # Note: max error value is ~68, target radius is 5
+    limits = c(.05, .70), na.value = "white" # Note: max error value is ~68, target radius is 5
   ) +
   # add data points
   geom_point(size = 1.3, alpha = 0.7, stroke = 0) +
@@ -346,7 +365,7 @@ p
 
 
 ```{r}
-num_exps <- 3
+num_exps <- 4
 ```
 
 ## Normalized Training Phases
@@ -355,9 +374,8 @@ num_exps <- 3
 data_per_group <- omnibus_df %>%
   filter(
     experiment %in% c(
-      "accel_cued_tilt",
-      "rot30_cued_tilt",
-      "curved_cued_tilt"
+      "rot30_cued_tilt", "rot30_uncued",
+      "curved_cued_tilt", "curved_uncued"
     ),
     trial_num >= 214,
     phase == "training",
@@ -437,7 +455,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig3_exps_normalized_training.pdf", device = "pdf",
-    height = 2, width = 2.5
+    height = 2, width = curve_fig_width
   )
 }
 
@@ -449,9 +467,8 @@ p
 data_per_ppt <- init_learning_rates %>%
   filter(
     experiment %in% c(
-      "accel_cued_tilt",
-      "rot30_cued_tilt",
-      "curved_cued_tilt"
+      "rot30_cued_tilt", "rot30_uncued",
+      "curved_cued_tilt", "curved_uncued"
     ),
     phase == "training"
   ) %>%
@@ -679,9 +696,8 @@ print(eff_size(emmeans(temp_ANOVA$aov, c("experiment")),
 data_per_group <- omnibus_df %>%
   filter(
     experiment %in% c(
-      "accel_cued_tilt",
-      "rot30_cued_tilt",
-      "curved_cued_tilt"
+      "rot30_cued_tilt", "rot30_uncued",
+      "curved_cued_tilt", "curved_uncued"
     ),
     trial_num >= 214,
     phase == "washout",
@@ -772,9 +788,8 @@ p
 data_per_ppt <- init_learning_rates %>%
   filter(
     experiment %in% c(
-      "accel_cued_tilt",
-      "rot30_cued_tilt",
-      "curved_cued_tilt"
+      "rot30_cued_tilt", "rot30_uncued",
+      "curved_cued_tilt", "curved_uncued"
     ),
     phase == "washout"
   ) %>%
@@ -1003,7 +1018,6 @@ These include the last trial of the Training phase for all Cued conditions.
 data_per_group <- omnibus_df %>%
   filter(
     experiment %in% c(
-      # "accel_cued_tilt", "accel_uncued",
       "rot30_cued_tilt", "rot30_uncued",
       "curved_cued_tilt", "curved_uncued"
     ),
@@ -1093,7 +1107,67 @@ if (save_plots) {
 p
 # ggplotly(p)
 ```
+```{r}
+fitted_data <- fitted_alt_washout_df %>%
+  filter(
+    experiment %in% c(
+      "rot30_cued_tilt", "rot30_uncued",
+      "curved_cued_tilt", "curved_uncued"
+    ),
+    phase == "washout"
+  ) %>%
+  mutate(
+    pert = factor(str_split_fixed(experiment, "_", 2)[, 1]),
+    cue = factor(str_split_fixed(experiment, "_", 2)[, 2])
+  )
 
+p <- fitted_data %>%
+  ggplot(
+    aes(x = x + 1, y = y, colour = experiment)
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    text = element_text(size = text_size)
+  ) +
+  labs(
+    x = "Trial",
+    y = "Normalized Throw Angle"
+  ) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 1), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list) + # scale axes
+  scale_y_continuous(
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5),
+    limits = c(-0.25, 1.5)
+  ) +
+  scale_x_continuous(
+    breaks = curve_x_breaks,
+    labels = curve_x_breaks
+  ) +
+  geom_line()
+
+# save
+if (save_plots) {
+  ggsave(
+    p,
+    filename = "../data/figs/paper_figs/fig3_curved_alt_washout_fitted_only.pdf", device = "pdf",
+    height = 2, width = curve_fig_width
+  )
+}
+
+p
+```
 ## Washout - Fit Learning Rates
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 data_per_ppt <- alt_washout_rates %>%
@@ -1345,5 +1419,8 @@ print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")),
   edf = temp_ANOVA$anova_table$`den Df`[1],
   sigma = sigma(temp_ANOVA$lm)
 ))
+```
+```{r}
+
 ```
 

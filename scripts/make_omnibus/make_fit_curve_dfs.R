@@ -5,7 +5,7 @@ library(data.table)
 library(tidyverse)
 library(future)
 
-make_fit_curve_df <- function(fit_df) {
+make_fit_curve_df <- function(fit_df, phase_override = "none") {
   # make summary df with parameters for the curves
   per_phase_summary <- fit_df %>%
     group_by(experiment, phase) %>%
@@ -22,7 +22,7 @@ make_fit_curve_df <- function(fit_df) {
   fit_curve_list <- vector("list", num_phases)
 
   for (i in 1:num_phases) {
-    fit_curve_list[[i]] <- future(make_one_fit_curve(i, per_phase_summary))
+    fit_curve_list[[i]] <- future(make_one_fit_curve(i, per_phase_summary, phase_override))
   }
 
   future_output <- value(fit_curve_list)
@@ -33,7 +33,7 @@ make_fit_curve_df <- function(fit_df) {
 
 # for each experiment and phase, make a fit curve using
 # 1000 points from 1 to 40
-make_one_fit_curve <- function(i, per_phase_summary) {
+make_one_fit_curve <- function(i, per_phase_summary, phase_override) {
   # get the experiment and phase
   experiment <- per_phase_summary$experiment[i]
   phase <- per_phase_summary$phase[i]
@@ -43,7 +43,7 @@ make_one_fit_curve <- function(i, per_phase_summary) {
   N0 <- per_phase_summary$mean_high[i]
 
   # make the fitted curve
-  if (phase == "washout") {
+  if (phase == "washout" | phase_override == "washout") {
     fit_curve <- tibble(
       x = seq(0, 39, length.out = 1000),
       y = N0 * (1 - lambda)^x
@@ -97,8 +97,12 @@ make_all_fit_curve_dfs <- function() {
       )
     )
 
-    # make the fit curve df
-    fit_curve_df <- make_fit_curve_df(fit_df)
+    # make fit dfs
+    if (grepl("exp_fits_errors", fit_df_path)) {
+      fit_curve_df <- make_fit_curve_df(fit_df, phase_override = "washout")
+    } else {
+      fit_curve_df <- make_fit_curve_df(fit_df)
+    }
 
     # add "fitted_" to the front of the name
     fit_df_name <- paste0("fitted_", basename(fit_df_path))

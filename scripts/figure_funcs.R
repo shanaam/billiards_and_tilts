@@ -16,6 +16,21 @@ library(ggnewscale)
 
 pallete_list <- c(
   "rot30_cued_tilt" = "#d40000",
+  "rot30_uncued" = "#f9982c",
+  "accel_cued_tilt" = "#0556a8",
+  "accel_uncued" = "#5fb696",
+  "rot15_cued_tilt" = "#780101",
+  "rot15_uncued" = "#945713",
+  "curved_cued_tilt" = "#04274d",
+  "curved_uncued" = "#294d3f",
+  "none" = "#770202",
+  "half_anim" = "#858585",
+  "full_anim" = "#404040",
+  "wait" = "#262626"
+)
+
+pallete_list_alt <- c(
+  "rot30_cued_tilt" = "#d40000",
   "rot30_uncued" = "#f76a6a",
   "accel_cued_tilt" = "#07509b",
   "accel_uncued" = "#58a9fc",

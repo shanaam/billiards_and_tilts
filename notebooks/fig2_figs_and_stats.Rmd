@@ -39,12 +39,7 @@ options(dplyr.summarise.inform = FALSE)
 # vars
 omnibus_path <- "../data/processed/omnibus/omnibus_raw.csv"
 num_exps <- 7
-```
 
-
-
-## Load all of the throw data
-```{r}
 # Note: this notebook right now REQUIRES that the analysis notebook be run to
 # make the fits, or that the data folder contains the fits
 
@@ -209,7 +204,6 @@ fitted_alt_washout_df <- read_csv(
       "a_ball_roll_animate_surface"
     )
   ))
-
 ```
 
 # Figure 2: Learning Curves
@@ -326,7 +320,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig2_initial_exps_all.pdf", device = "pdf",
-    height = 2, width = 2.75
+    height = 2, width = 3.75
   )
 }
 
@@ -408,7 +402,7 @@ if (save_plots) {
   ggsave(
     p,
     filename = "../data/figs/paper_figs/fig2_initial_exps_phases.pdf", device = "pdf",
-    height = 2, width = 2.75
+    height = 2, width = 3.75
   )
 }
 
@@ -478,7 +472,7 @@ p <- data_per_group %>%
   scale_y_continuous(
     breaks = c(0, 0.5, 1, 1.5),
     labels = c(0, 0.5, 1, 1.5),
-    limits = c(0, 1.5)
+    limits = c(-0.1, 1.5)
   ) +
   scale_x_continuous(
     breaks = curve_x_breaks,
@@ -496,10 +490,9 @@ for (uniq_phase in unique(data_per_group$phase)) {
       ymin = mean_deviation - ci_deviation,
       ymax = mean_deviation + ci_deviation,
       fill = experiment
-    ), colour = NA, alpha = 0.20
+    ), colour = NA, alpha = 0.30
   ) + geom_line(
-    data = to_plot_data,
-    alpha = 0.5
+    data = to_plot_data
   )
 }
 
@@ -570,7 +563,7 @@ p <- fitted_data %>%
   scale_y_continuous(
     breaks = c(0, 0.5, 1, 1.5),
     labels = c(0, 0.5, 1, 1.5),
-    limits = c(0, 1.5)
+    limits = c(-0.1, 1.5)
   ) +
   scale_x_continuous(
     breaks = curve_x_breaks,
@@ -1910,3 +1903,8 @@ print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")),
   sigma = sigma(temp_ANOVA$lm)
 ))
 ```
+
+```{r}
+
+```
+

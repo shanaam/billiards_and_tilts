@@ -51,9 +51,9 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
       surface_tilt = per_block_list_surface_tilt,
       surface = per_block_surface_materials
     ) %>%
-    mutate(raw_error_size = raw_error_size * 100) %>% # convert error_size to cm
+    # mutate(raw_error_size = raw_error_size * 100) %>% # convert error_size to cm
     # Outlier removal: filter out throws that never got closer than 70cm to the target
-    filter(raw_error_size < 70) %>% 
+    filter(raw_error_size < 0.70) %>% 
     mutate(task_type = recode( # recode tasktype
       type,
       "aligned" = "roll_to_target",
@@ -371,24 +371,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         )
       )
   }
-  ### remove things final
-
-  # # make a per trial summary and join it to the trial_df
-  # hand_df_summary <- hand_df %>%
-  #   group_by(trial_num) %>%
-  #   summarise(
-  #     hand_time_start_move = first(time_start_move),
-  #     hand_time_reach = first(time_reach),
-  #     hand_time_total_move = first(time_total_move),
-  #     hand_angle_3cm_move = first(angle_3cm_move),
-  #   )
-  #
-  # trial_df <- trial_df %>%
-  #   mutate(error_size = error_size * 100) %>% # convert error_size to cm
-  #   filter(error_size < 70) %>% # filter out errors > 70 cm
 
   # return the trial_df
-
   return(trial_df)
 }
 
