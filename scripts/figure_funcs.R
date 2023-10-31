@@ -22,7 +22,7 @@ pallete_list <- c(
   "rot15_cued_tilt" = "#780101",
   "rot15_uncued" = "#945713",
   "curved_cued_tilt" = "#04274d",
-  "curved_uncued" = "#294d3f",
+  "curved_uncued" = "#3d6355",
   "none" = "#770202",
   "half_anim" = "#858585",
   "full_anim" = "#404040",

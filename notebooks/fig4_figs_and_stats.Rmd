@@ -446,6 +446,7 @@ data_per_group <- data_per_ppt %>%
     ci_learning_rate = vector_confint(exp_fit_lambda),
     mean_high = mean(exp_fit_N0),
     ci_high = vector_confint(exp_fit_N0),
+    n = n(),
     .groups = "drop"
   ) 
 
@@ -869,6 +870,7 @@ data_per_group <- data_per_ppt %>%
     ci_learning_rate = vector_confint(exp_fit_lambda),
     mean_high = mean(exp_fit_N0),
     ci_high = vector_confint(exp_fit_N0),
+    n = n(),
     .groups = "drop"
   )
 

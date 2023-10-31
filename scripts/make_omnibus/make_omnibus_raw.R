@@ -52,7 +52,7 @@ make_omnibus_raw_file <- function(to_load_dir_path) {
       surface = per_block_surface_materials
     ) %>%
     # mutate(raw_error_size = raw_error_size * 100) %>% # convert error_size to cm
-    # Outlier removal: filter out throws that never got closer than 70cm to the target
+### Outlier removal: filter out throws that never got closer than 70cm to the target
     filter(raw_error_size < 0.70) %>% 
     mutate(task_type = recode( # recode tasktype
       type,

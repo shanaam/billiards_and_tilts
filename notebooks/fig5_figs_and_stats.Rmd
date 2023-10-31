@@ -152,7 +152,8 @@ anim_learning_rates <- read_csv(
   col_types = cols(
     .default = col_double(),
     ppid = col_factor(),
-    experiment = col_factor()
+    experiment = col_factor(),
+    phase = col_factor()
     )
   ) %>%
   mutate(experiment = factor(
@@ -232,7 +233,7 @@ data_per_group_30 <- data_per_ppt_30 %>%
 p <- data_per_group %>%
   ggplot(
     aes(
-      x = trial_num_in_block, y = mean_deviation,
+      x = trial_num_in_block, y = mean_deviation * -1,
       colour = experiment, fill = experiment
     )
   ) +
@@ -242,18 +243,25 @@ p <- data_per_group %>%
     x = "Trial Number in Block",
     y = "Throw Angle (°)"
   ) +
+  # add horizontal lines
   geom_hline(
-    yintercept = c(0, -30), linewidth = 0.4,
+    yintercept = c(0, 30), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
   ) +
   geom_hline(
-    yintercept = c(-15), linewidth = 0.4,
+    yintercept = c(-10, 10, 20, 40), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(-5, 40),
+    breaks = c(-10, 0, 10, 20, 30, 40),
+    labels = c(-10, 0, 10, 20, 30, 40)
   ) +
   geom_ribbon(
     aes(
-      ymin = mean_deviation - ci_deviation,
-      ymax = mean_deviation + ci_deviation
+      ymin = (mean_deviation - ci_deviation) * -1,
+      ymax = (mean_deviation + ci_deviation) * -1
     ),
     colour = NA, alpha = 0.3
   ) +
@@ -262,8 +270,8 @@ p <- data_per_group %>%
   geom_ribbon(
     data = data_per_group_30,
     aes(
-      ymin = mean_deviation - ci_deviation,
-      ymax = mean_deviation + ci_deviation,
+      ymin = (mean_deviation - ci_deviation) * -1,
+      ymax = (mean_deviation + ci_deviation) * -1,
       fill = experiment
     ),
     colour = NA, alpha = 0.3
@@ -300,6 +308,12 @@ data_per_group <- data_per_ppt %>%
     mean_high = mean(exp_fit_N0),
     ci_high = vector_confint(exp_fit_N0),
     .groups = "drop"
+  )  %>%
+  mutate(experiment = factor(
+    experiment, 
+    levels = c("rot30_cued_tilt", "rot30_uncued",
+      "half_anim", "full_anim")
+    )
   )
 
 p <- data_per_group %>%
@@ -309,29 +323,12 @@ p <- data_per_group %>%
   theme_classic() +
   labs(
     x = per_group_x_labs,
-    y = "Learning Rate"
+    y = "Decay Rate"
   ) + 
   theme(
     legend.position = "none"
     ) +
   guides(colour = guide_legend(override.aes = list(alpha = 1))) +
-  # add data points
-  geom_beeswarm(
-    data = data_per_ppt,
-    aes(
-      y = exp_fit_lambda
-    ),
-    alpha = 0.1,
-    size = 1
-  ) +
-  geom_linerange(aes(
-    ymin = mean_learning_rate - ci_learning_rate,
-    ymax = mean_learning_rate + ci_learning_rate
-  ), alpha = 0.5, lwd = 2) +
-  geom_point() +
-  # set colour palette
-  scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list) +
   # add horizontal lines
   geom_hline(
     yintercept = c(0, 1), linewidth = 0.4,
@@ -349,7 +346,25 @@ p <- data_per_group %>%
   ) +
   scale_x_discrete(
     labels = c(0, 0, 0, 0)
-  )
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = exp_fit_lambda
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_learning_rate - ci_learning_rate,
+    ymax = mean_learning_rate + ci_learning_rate
+  ), alpha = 0.5, lwd = 2) +
+  geom_point() +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+  
 
 # save
 if (save_plots) {
@@ -360,17 +375,16 @@ if (save_plots) {
   )
 }
 
-
 p
 ```
 ### Paired t-tests comparing animations
 
 ```{r}
 # summary statistics
-data_per_ppt <- data_per_ppt %>%
+data_per_ppt_test <- data_per_ppt %>%
   filter(experiment %in% c("half_anim", "full_anim"))
 
-data_per_ppt %>% 
+data_per_ppt_test %>% 
   group_by(experiment) %>% 
   summarise(
     mean = mean(exp_fit_lambda),
@@ -381,11 +395,11 @@ data_per_ppt %>%
 ```{r}
 # Comparison stats
 # paired t-test
-group1 <- data_per_ppt %>% 
+group1 <- data_per_ppt_test %>% 
   filter(experiment == "half_anim") %>% 
   pull(exp_fit_lambda)
 
-group2 <- data_per_ppt %>%
+group2 <- data_per_ppt_test %>%
   filter(experiment == "full_anim") %>% 
   pull(exp_fit_lambda)
 
@@ -401,53 +415,55 @@ ttestBF(x = diffs)
 
 ## High Points (Starts)
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
+
 p <- data_per_group %>%
   ggplot(
-    aes(x = experiment, y = mean_high, colour = experiment)
+    aes(x = experiment, y = mean_high * -1, colour = experiment)
   ) +
   theme_classic() +
   labs(
     x = per_group_x_labs,
-    y = "Start Point"
+    y = "Start Point of Decay"
   ) + 
   theme(
     legend.position = "none"
     ) + 
   guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  # add horizontal lines
+  geom_hline(
+    yintercept = c(0, 30), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  geom_hline(
+    yintercept = c(-10, 10, 20, 40), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "dashed"
+  ) +
+  # y-axis scale
+  scale_y_continuous(
+    limits = c(-5, 40),
+    breaks = c(-10, 0, 10, 20, 30, 40),
+    labels = c(-10, 0, 10, 20, 30, 40)
+  ) +
+  scale_x_discrete(
+    labels = c(0, 0, 0, 0)
+  ) +
   # add data points
   geom_beeswarm(
     data = data_per_ppt,
     aes(
-      y = exp_fit_N0
+      y = exp_fit_N0 * -1
     ),
     alpha = 0.1,
     size = 1
   ) +
   geom_linerange(aes(
-    ymin = mean_high - ci_high,
-    ymax = mean_high + ci_high
+    ymin = (mean_high - ci_high) * -1,
+    ymax = (mean_high + ci_high) * -1
   ), alpha = 0.5, lwd = 2) +
   geom_point() +
   scale_colour_manual(values = pallete_list) +
-  scale_fill_manual(values = pallete_list) +
-  # add horizontal lines
-  geom_hline(
-    yintercept = c(0, -30), linewidth = 0.4,
-    colour = "#CCCCCC", linetype = "solid"
-  ) +
-  geom_hline(
-    yintercept = c(10, -10, -20), linewidth = 0.4,
-    colour = "#CCCCCC", linetype = "dashed"
-  ) +
-  # y-axis scale
-  scale_y_continuous(
-    # limits = c(-35, 5),
-    breaks = c(10, 0, -10, -20, -30),
-    labels = c(10, 0, -10, -20, -30)
-  ) +
-  scale_x_discrete(
-    labels = c(0, 0, 0, 0)
-  ) 
+  scale_fill_manual(values = pallete_list)
+
 
 # save
 if (save_plots) {
@@ -495,3 +511,8 @@ cohen.d(group1, group2)
 # Bayes factor
 ttestBF(x = diffs)
 ```
+
+```{r}
+
+```
+

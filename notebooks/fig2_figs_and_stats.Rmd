@@ -269,10 +269,10 @@ p <- data_per_group %>%
     yintercept = c(-15), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
   ) + # add vertical lines
-  geom_vline(
-    xintercept = c(333.5 - bl_trial_shift), linewidth = 0.4,
-    colour = "#CCCCCC", linetype = "dashed"
-  ) +
+  # geom_vline(
+  #   xintercept = c(333.5 - bl_trial_shift), linewidth = 0.4,
+  #   colour = "#CCCCCC", linetype = "dashed"
+  # ) +
   # scale axes
   scale_y_continuous(
     limits = c(-42, 5),
@@ -607,6 +607,7 @@ data_per_group <- data_per_ppt %>%
     ci_learning_rate = vector_confint(exp_fit_lambda),
     mean_high = mean(exp_fit_N0),
     ci_high = vector_confint(exp_fit_N0),
+    n = n(),
     .groups = "drop"
   )
 
@@ -1167,7 +1168,7 @@ p <- data_per_group %>%
   ) +
   # y-axis scale
   scale_y_continuous(
-    limits = c(-0.5, 1.6),
+    limits = c(-0.5, 1.75),
     breaks = c(-0.5, 0, 0.5, 1, 1.5),
     labels = c(-0.5, 0, 0.5, 1, 1.5)
   ) +
@@ -1205,7 +1206,7 @@ if (save_plots) {
 
 p
 ```
-
+Note: the outlier is ~ -2 in the Cued Accellerated group.
 ```{r}
 (temp_ANOVA <- aov_car(
   exp_fit_N0 ~ pert * cue + Error(ppid),
@@ -1582,7 +1583,7 @@ p <- data_per_group %>%
   ) +
   # y-axis scale
   scale_y_continuous(
-    limits = c(-0.5, 1.6),
+    limits = c(-0.25, 1.75),
     breaks = c(-0.5, 0, 0.5, 1, 1.5),
     labels = c(-0.5, 0, 0.5, 1, 1.5)
   ) +
@@ -1620,7 +1621,7 @@ if (save_plots) {
 
 p
 ```
-
+Note: outlier ~2.5 in the Cued Curved group
 ```{r}
 (temp_ANOVA <- aov_car(
   exp_fit_N0 ~ pert * cue + Error(ppid),
