@@ -70,7 +70,11 @@ omnibus_df <- read_delim("../data/processed/omnibus/omnibus_raw.csv",
 ) %>% # filter out practice blocks
   filter(
     block_num > 4,
-    !(ppid %in% c(2, 81, 82, 83))
+    !(ppid %in% c(2, 81, 82, 83)),
+    experiment %in% c(
+      "accel_uncued", "accel_cued_tilt",
+      "rot30_uncued", "rot30_cued_tilt"
+    )
   )
 
 # load exponential decay fits
@@ -213,10 +217,6 @@ fitted_alt_washout_df <- read_csv(
 data_per_ppt <- omnibus_df %>%
   filter(
     phase != "transfer",
-    experiment %in% c(
-      "accel_uncued", "accel_cued_tilt",
-      "rot30_uncued", "rot30_cued_tilt"
-    ),
     trial_num >= 214
   ) %>%
   mutate(
@@ -418,10 +418,6 @@ Note: we can see if each group is different from 1 at the end of training to see
 # rest of the exps
 data_per_group <- omnibus_df %>%
   filter(
-    experiment %in% c(
-      "accel_uncued", "accel_cued_tilt",
-      "rot30_uncued", "rot30_cued_tilt"
-    ),
     trial_num >= 214,
     phase == "training",
     learning_and_decay_curves == 1
@@ -835,10 +831,6 @@ print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")),
 # rest of the exps
 data_per_group <- omnibus_df %>%
   filter(
-    experiment %in% c(
-      "accel_uncued", "accel_cued_tilt",
-      "rot30_uncued", "rot30_cued_tilt"
-    ),
     trial_num >= 214,
     phase == "washout",
     learning_and_decay_curves == 1
@@ -1260,10 +1252,6 @@ These include the last trial of the Training phase for all Cued conditions.
 # rest of the exps
 data_per_group <- omnibus_df %>%
   filter(
-    experiment %in% c(
-      "accel_uncued", "accel_cued_tilt",
-      "rot30_uncued", "rot30_cued_tilt"
-    ),
     trial_num >= 214,
     alt_washout_block == TRUE,
   ) %>%
@@ -1675,10 +1663,6 @@ These include the last trial of the Training phase for all conditions.
 # rest of the exps
 data_per_group <- omnibus_df %>%
   filter(
-    experiment %in% c(
-      "accel_uncued", "accel_cued_tilt",
-      "rot30_uncued", "rot30_cued_tilt"
-    ),
     trial_num >= 214,
     alt_all_washout_block == TRUE,
   ) %>%
@@ -1904,8 +1888,117 @@ print(eff_size(emmeans(temp_ANOVA$aov, c("pert", "cue")),
   sigma = sigma(temp_ANOVA$lm)
 ))
 ```
-
+## Sanity Check: Flick distances
+Q: Do participants tend to release the flick early via the trigger? Do flick distances differ across the 4 groups?
 ```{r}
+data_per_ppt <- omnibus_df %>%
+  filter(!is.na(flick_dist)) %>%
+  group_by(experiment, ppid) %>%
+  summarise(
+    ppt_mean_dist = mean(flick_dist),
+    ppt_ci_dist = vector_confint(flick_dist),
+    ppt_sd_dist = sd(flick_dist),
+    n = n()
+  )
+  
+data_per_group <- data_per_ppt %>%
+  group_by(experiment) %>%
+  summarise(
+    mean_dist = mean(ppt_mean_dist),
+    ci_dist = vector_confint(ppt_mean_dist),
+    n = n()
+  )
 
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_dist, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Flick Distance"
+  ) +
+  geom_hline(
+    yintercept = c(0, 0.15), linewidth = 0.4,
+    colour = "#CCCCCC", linetype = "solid"
+  ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = ppt_mean_dist
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_dist - ci_dist,
+    ymax = mean_dist + ci_dist
+  ), alpha = 0.5, lwd = 2) +
+  geom_point() +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+p
 ```
+
+### Within Participant
+```{r}
+data_per_group <- data_per_ppt %>%
+  group_by(experiment) %>%
+  summarise(
+    mean_dist = mean(ppt_sd_dist),
+    ci_dist = vector_confint(ppt_sd_dist),
+    n = n()
+  )
+
+p <- data_per_group %>%
+  ggplot(
+    aes(x = experiment, y = mean_dist, colour = experiment)
+  ) +
+  theme_classic() +
+  labs(
+    x = NULL,
+    y = "Flick Distance"
+  ) +
+  # geom_hline(
+  #   yintercept = c(0, 0.15), linewidth = 0.4,
+  #   colour = "#CCCCCC", linetype = "solid"
+  # ) +
+  # add data points
+  geom_beeswarm(
+    data = data_per_ppt,
+    aes(
+      y = ppt_sd_dist
+    ),
+    alpha = 0.1,
+    size = 1
+  ) +
+  geom_linerange(aes(
+    ymin = mean_dist - ci_dist,
+    ymax = mean_dist + ci_dist
+  ), alpha = 0.5, lwd = 2) +
+  geom_point() +
+  # set colour palette
+  scale_colour_manual(values = pallete_list) +
+  scale_fill_manual(values = pallete_list)
+
+p
+```
+```{r}
+(temp_ANOVA <- aov_car(
+  ppt_mean_dist ~ experiment + Error(ppid),
+  data_per_ppt,
+  include_aov = TRUE
+))
+
+print("Bayes anovas and bayes factors:")
+print("")
+
+bf <- anovaBF(ppt_mean_dist ~ experiment, data = data.frame(data_per_ppt), progress = FALSE)
+print(bf)
+print(bayesfactor_inclusion(bf))
+```
+
 

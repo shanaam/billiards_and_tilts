@@ -224,14 +224,15 @@ fitted_learning_rate_df <- read_csv(
 data_per_ppt_anim <- omnibus_df %>%
   filter(
     exp_label == "animate_surface",
-    phase == "training"
+    phase == "training",
+    trial_num_in_block <= 40
   )
 
 data_per_group <- data_per_ppt_anim %>%
   group_by(experiment, trial_num_in_block) %>%
   summarise(
-    mean_deviation = mean(throw_deviation),
-    ci_deviation = vector_confint(throw_deviation),
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
     n = n(),
     .groups = "drop"
   )
@@ -240,15 +241,16 @@ data_per_group <- data_per_ppt_anim %>%
 data_per_ppt_30 <- omnibus_df %>%
   filter(
     experiment %in% c("rot30_cued_tilt", "rot30_uncued"),
-    phase == "training"
+    phase == "training",
+    trial_num_in_block <= 40
   ) %>%
-  select(ppid, trial_num_in_block, experiment, throw_deviation)
+  select(ppid, trial_num_in_block, experiment, norm_throw_deviation)
 
 data_per_group_30 <- data_per_ppt_30 %>%
   group_by(experiment, trial_num_in_block) %>%
   summarise(
-    mean_deviation = mean(throw_deviation),
-    ci_deviation = vector_confint(throw_deviation),
+    mean_deviation = mean(norm_throw_deviation),
+    ci_deviation = vector_confint(norm_throw_deviation),
     n = n(),
     .groups = "drop"
   )
@@ -257,49 +259,42 @@ data_per_group_30 <- data_per_ppt_30 %>%
 p <- data_per_group %>%
   ggplot(
     aes(
-      x = trial_num_in_block, y = mean_deviation * -1,
+      x = trial_num_in_block, y = mean_deviation,
       colour = experiment, fill = experiment
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        text = element_text(size = text_size)) +
   labs(
     x = "Trial",
-    y = "Throw Angle (°)"
+    y = "Normalized Throw Angle"
   ) +
   # add horizontal lines
   geom_hline(
-    yintercept = c(0, 30), linewidth = 0.4,
+    yintercept = c(0, 1), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
   ) +
   geom_hline(
-    yintercept = c(-10, 10, 20, 40), linewidth = 0.4,
+    yintercept = c(0.5, 1.5), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "dashed"
   ) +
   # y-axis scale
   scale_y_continuous(
-    limits = c(-5, 40),
-    breaks = c(-10, 0, 10, 20, 30, 40),
-    labels = c(-10, 0, 10, 20, 30, 40)
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5),
+    limits = c(-0.1, 1.5)
   ) +
   scale_x_continuous(
+    limits = c(0, 40),
     breaks = c(0, 10, 20, 30, 40),
     labels = c(0, 10, 20, 30, 40)
   ) +
   geom_ribbon(
-    aes(
-      ymin = (mean_deviation - ci_deviation) * -1,
-      ymax = (mean_deviation + ci_deviation) * -1
-    ),
-    colour = NA, alpha = 0.3
-  ) +
-  # add data 
-  geom_line() +
-  geom_ribbon(
     data = data_per_group_30,
     aes(
-      ymin = (mean_deviation - ci_deviation) * -1,
-      ymax = (mean_deviation + ci_deviation) * -1,
+      ymin = (mean_deviation - ci_deviation),
+      ymax = (mean_deviation + ci_deviation),
       fill = experiment
     ),
     colour = NA, alpha = 0.3
@@ -310,6 +305,15 @@ p <- data_per_group %>%
       colour = experiment
     )
   ) +
+  geom_ribbon(
+    aes(
+      ymin = (mean_deviation - ci_deviation),
+      ymax = (mean_deviation + ci_deviation)
+    ),
+    colour = NA, alpha = 0.3
+  ) +
+  # add data 
+  geom_line() +
   scale_colour_manual(values = pallete_list) +
   scale_fill_manual(values = pallete_list)
 
@@ -486,6 +490,30 @@ if (save_plots) {
 
 p
 ```
+```{r}
+data_per_ppt_cued <- data_per_ppt |>
+  filter(experiment %in% c("rot30_cued_tilt", "a_ball_roll_animate_surface"))
+
+# Comparison stats
+# paired t-test
+group1 <- data_per_ppt_cued %>% 
+  filter(experiment == "rot30_cued_tilt") %>% 
+  pull(exp_fit_lambda)
+
+group2 <- data_per_ppt_cued %>%
+  filter(experiment == "a_ball_roll_animate_surface") %>% 
+  pull(exp_fit_lambda)
+
+diffs <- group2 - group1
+t.test(diffs)
+
+# Effect size
+cohen.d(group1, group2)
+
+# Bayes factor
+ttestBF(x = diffs)
+```
+
 ## Training - Fit High Points (Asymptotes)
 ```{r, fig.width=10, fig.height=6, out.width="100%"}
 p <- data_per_group %>%
@@ -507,7 +535,7 @@ p <- data_per_group %>%
   scale_fill_manual(values = pallete_list) +
   # add horizontal lines
   geom_hline(
-    yintercept = c(1), linewidth = 0.4,
+    yintercept = c(0, 1), linewidth = 0.4,
     colour = "#CCCCCC", linetype = "solid"
   ) +
   geom_hline(
@@ -516,9 +544,9 @@ p <- data_per_group %>%
   ) +
   # y-axis scale
   scale_y_continuous(
-    limits = c(0.5, 1.75),
-    breaks = c(0.5, 0.75, 1, 1.25, 1.5),
-    labels = c(0.5, 0.75, 1, 1.25, 1.5)
+    breaks = c(0, 0.5, 1, 1.5),
+    labels = c(0, 0.5, 1, 1.5),
+    limits = c(-0.1, 1.5)
   ) +
   scale_x_discrete(
     labels = c(0, 0, 0, 0)
@@ -553,6 +581,26 @@ if (save_plots) {
 }
 
 p
+```
+```{r}
+# Comparison stats
+# paired t-test
+group1 <- data_per_ppt_cued %>% 
+  filter(experiment == "rot30_cued_tilt") %>% 
+  pull(exp_fit_N0)
+
+group2 <- data_per_ppt_cued %>%
+  filter(experiment == "a_ball_roll_animate_surface") %>% 
+  pull(exp_fit_N0)
+
+diffs <- group2 - group1
+t.test(diffs)
+
+# Effect size
+cohen.d(group1, group2)
+
+# Bayes factor
+ttestBF(x = diffs)
 ```
 
 # Washout
@@ -612,7 +660,8 @@ p <- data_per_group %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        text = element_text(size = text_size)) +
   labs(
     x = "Trial Number in Block",
     y = "Throw Angle (°)"
@@ -699,7 +748,8 @@ p <- fitted_data %>%
     )
   ) +
   theme_classic() +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        text = element_text(size = text_size)) +
   labs(
     x = "Trial Number in Block",
     y = "Throw Angle (°)"
@@ -770,7 +820,8 @@ p <- data_per_group %>%
     y = "Decay Rate"
   ) + 
   theme(
-    legend.position = "none"
+    legend.position = "none",
+    text = element_text(size = text_size)
     ) +
   guides(colour = guide_legend(override.aes = list(alpha = 1))) +
   # add horizontal lines
@@ -870,7 +921,8 @@ p <- data_per_group %>%
     y = "Start Point of Decay"
   ) + 
   theme(
-    legend.position = "none"
+    legend.position = "none",
+    text = element_text(size = text_size)
     ) + 
   guides(colour = guide_legend(override.aes = list(alpha = 1))) +
   # add horizontal lines

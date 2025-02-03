@@ -170,7 +170,7 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
     filter(!(type %in% c("instruction", "animate_surface"))) %>%
     select(
       -"session_num", -"indicator_angle", -"show_path", -"tilt_after_fire",
-      -"flick_multiplier", -"step_timestamp"
+      -"flick_multiplier"
     ) %>% # add a column for the throw_deviation
     mutate(
       raw_throw_deviation = atan2_2d(
@@ -180,11 +180,22 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       raw_error_size = error_size
     )
 
-  ## ORIGIAL EXPS ##
+  ## ALL EXPS (split) ##
   if (trial_df$experiment[1] %in% original_exps) {
-    # na
-    trial_df$flick_dist <- NA # We should do this for completenes...
-    # TODO: issue: in original exps we have a hand_x and hand_z that contains all the positions. We need to first subset the right positions (there is a flick start and flick end time that can be mapped to all timestamps)
+    trial_df <- trial_df %>%
+      rowwise() %>%
+      mutate(
+        hand_x_start = convert_original_exp_cell_to_numvec_start(hand_x, tracking_timestamp, flick_start_time, flick_end_time),
+        hand_z_start = convert_original_exp_cell_to_numvec_start(hand_z, tracking_timestamp, flick_start_time, flick_end_time),
+        hand_x_end = convert_original_exp_cell_to_numvec_end(hand_x, tracking_timestamp, flick_start_time, flick_end_time),
+        hand_z_end = convert_original_exp_cell_to_numvec_end(hand_z, tracking_timestamp, flick_start_time, flick_end_time),
+        flick_dist = calc_flick_2d_distance(
+          hand_x_start, hand_z_start,
+          hand_x_end, hand_z_end
+        )
+      ) %>%
+      # remove the hand_x_start, hand_z_start, hand_x_end, hand_z_end columns
+      select(-hand_x_start, -hand_z_start, -hand_x_end, -hand_z_end)
   } else {
     trial_df <- trial_df %>%
       rowwise() %>%
@@ -201,6 +212,11 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
       # remove the hand_x_start, hand_z_start, hand_x_end, hand_z_end columns
       select(-hand_x_start, -hand_z_start, -hand_x_end, -hand_z_end)
   }
+  
+  ## ALL EXPS ## 
+  # remove any unused
+  trial_df <- trial_df %>%
+    select(-step_timestamp)
 
 
   ## ORIGIAL EXPS ##
@@ -394,6 +410,8 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
         )
       )
   }
+  
+
 
   # return the trial_df
   return(trial_df)
@@ -401,16 +419,16 @@ make_one_ppt_file <- function(directory_index, ppt_list) {
 
 #####  Test #####
 # directory_index = 120
-#
+# 
 # ppt_list <- list.dirs(to_load_dir_path, recursive = FALSE)
 # ppt_list_test <- ppt_list[1:3]
 # # make a list of length length(ppt_list)
 # trial_df_list <- vector("list", length(ppt_list_test))
-#
+# 
 # for (i in 1:length(trial_df_list)) {
 #   trial_df_list[[i]] <- make_one_ppt_file(i, ppt_list_test)
 # }
-#
+# 
 # omnibus_df <- do.call(rbind, trial_df_list)
 
 ##### Do #####

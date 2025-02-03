@@ -1323,13 +1323,6 @@ ggplotly(p)
 ```
 
 
-
-
-
-
-
-
-
 ```{r, include=FALSE}
 ## EMPTY
 ```

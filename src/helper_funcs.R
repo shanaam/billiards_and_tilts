@@ -95,7 +95,7 @@ reg_confints <- function(x, y) {
 
 # get the magnitude (euclidian normal) of a vector (this is faster than R's built in norm)
 norm_vec <- function(vector) {
-  sqrt(crossprod(vector))
+  sqrt(crossprod(vector))[[1]]
 }
 
 # load data using fread
@@ -127,13 +127,67 @@ convert_cell_to_numvec_end <- function(v) {
 
   v <- unlist(v)
 
-  v <- v[length(v)]
+  if (length(v) <= 1) {
+    v <- NA
+  } else {
+    v <- v[length(v) - 1]
+  }
+  return(v)
+}
+
+convert_original_exp_cell_to_numvec_start <- function(v, ts, flick_start_ts, flick_end_ts) {
+  # split by commas, convert to numeric, and unlist
+  v <- strsplit(v, "_") |>
+    lapply(FUN = as.numeric) |>
+    unlist()
+
+  # repeat for ts
+  ts <- strsplit(ts, "_") |>
+    lapply(FUN = as.numeric) |>
+    unlist()
+
+  # get a mask for the ts vector for values between step_ts[1] and step_ts[2]
+  mask <- ts >= flick_start_ts & ts <= flick_end_ts
+
+  # get the first value of v that corresponds to the mask
+  v <- v[mask][1]
 
   return(v)
 }
 
+convert_original_exp_cell_to_numvec_end <- function(v, ts, flick_start_ts, flick_end_ts) {
+  # split by commas, convert to numeric, and unlist
+  v <- strsplit(v, "_") |>
+    lapply(FUN = as.numeric) |>
+    unlist()
+
+  # repeat for ts
+  ts <- strsplit(ts, "_") |>
+    lapply(FUN = as.numeric) |>
+    unlist()
+
+  # get a mask for the ts vector for values between step_ts[1] and step_ts[2]
+  mask <- ts >= flick_start_ts & ts <= flick_end_ts
+
+  # get the last value of v that corresponds to the mask
+  v <- v[mask]
+
+  if (length(v) <= 1) {
+    v <- NA
+  } else {
+    v <- v[length(v) - 1]
+  }
+
+  return(v)
+}
+
+
 # get the magnitude of a path (given as a str)
 calc_flick_2d_distance <- function(x_start, y_start, x_end, y_end) {
+  # if any of the values are NA, return NA
+  if (is.na(x_start) | is.na(y_start) | is.na(x_end) | is.na(y_end)) {
+    return(NA)
+  }
   # calculate the distance between two points
   dist <- norm_vec(c(x_end - x_start, y_end - y_start))
 
